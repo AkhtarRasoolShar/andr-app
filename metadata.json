@@ -1,6 +1,6 @@
 {
-  "name": "Snow-White",
-  "description": "The official Snow-White Pakistan app. Premium dry cleaning, laundry/washing, carpet restoration, and high-end fabric care services at your fingertips.",
+  "name": "snowwhite",
+  "description": "The official snowwhite Pakistan app. Premium dry cleaning, laundry/washing, carpet restoration, and high-end fabric care services at your fingertips.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

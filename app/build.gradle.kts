@@ -6,6 +6,15 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
+val marketScreensFile = file("src/main/java/com/example/ui/screens/MarketScreens.kt")
+if (marketScreensFile.exists()) {
+    var content = marketScreensFile.readText()
+    content = content.replace("\r\n", "\n")
+    content = content.replace("ElevatedCard", "Card")
+    content = content.replace("elevatedCardColors", "cardColors")
+    marketScreensFile.writeText(content)
+}
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -92,7 +101,7 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  // implementation(libs.coil.compose)
+  implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.Order
 import com.example.data.Product
+import com.example.viewmodel.ApiProductState
 import com.example.viewmodel.CartSummary
 import com.example.viewmodel.CartUiItem
 import com.example.viewmodel.MarketViewModel
@@ -53,6 +55,24 @@ import com.example.ui.theme.*
 
 @Composable
 fun ProceduralCraftImage(category: String, subkey: String, modifier: Modifier = Modifier) {
+    if (subkey.startsWith("http://", ignoreCase = true) || subkey.startsWith("https://", ignoreCase = true)) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(130.dp)
+                .clip(RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            coil.compose.AsyncImage(
+                model = subkey,
+                contentDescription = "Active fabric care product dynamic view",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
+        return
+    }
+
     val goldCol = Color(0xFFC5A059)
     val darkGold = Color(0xFF9E7E44)
     val blushCol = Color(0xFFE5B5B0)
@@ -499,52 +519,117 @@ fun MainCatalogScreen(
         }
 
         // Main listings viewport
-        if (products.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.SearchOff,
-                        contentDescription = "Nothing found",
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No goods matched search criteria.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Try clearing queries or changing category tabs.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                    )
+        val apiState by viewModel.apiState.collectAsState()
+
+        when {
+            apiState is ApiProductState.Loading && products.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Loading premium care services...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("product_grid")
-            ) {
-                items(products, key = { it.id }) { item ->
-                    ProductListingCard(
-                        product = item,
-                        onClick = { activeProductForDetail = item },
-                        onQuickAdd = { viewModel.addToCart(item) }
-                    )
+            apiState is ApiProductState.Error && products.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.CloudOff,
+                            contentDescription = "Connection error",
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Unable to connect to backend",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = (apiState as ApiProductState.Error).message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.loadProductsFromApi() },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Retry Connection")
+                        }
+                    }
+                }
+            }
+            products.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.SearchOff,
+                            contentDescription = "Nothing found",
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No goods matched search criteria.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Try clearing queries or changing category tabs.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("product_grid")
+                ) {
+                    items(products, key = { it.id }) { item ->
+                        ProductListingCard(
+                            product = item,
+                            onClick = { activeProductForDetail = item },
+                            onQuickAdd = { viewModel.addToCart(item) }
+                        )
+                    }
                 }
             }
         }
@@ -822,6 +907,13 @@ fun CartScreen(
     var cardCvv by remember { mutableStateOf("") }
     var addressStr by remember { mutableStateOf("") }
     var typedPromo by remember { mutableStateOf("") }
+    var selectedPaymentMethod by remember { mutableStateOf("cod") }
+
+    // Laundry pickup and delivery schedule selections
+    var selectedPickupDate by remember { mutableStateOf("") }
+    var selectedPickupSlot by remember { mutableStateOf("") }
+    var selectedDeliveryDate by remember { mutableStateOf("") }
+    var selectedDeliverySlot by remember { mutableStateOf("") }
 
     // Read promo states from combined ViewModel
     val couponSuccess by viewModel.couponSuccess.collectAsState()
@@ -937,7 +1029,7 @@ fun CartScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "Snow-White Promotion Codes",
+                                    text = "Snowwhite Promotion Codes",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
                                 )
@@ -1097,10 +1189,317 @@ fun CartScreen(
                                     )
                                 }
 
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // ====================================================
+                                // INTERACTIVE LAUNDRY CALENDAR SCHEDULER
+                                // ====================================================
+                                Text(
+                                    text = "LAUNDRY SCHEDULING",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Configure date and dynamic time-slot windows for our clean agents.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+
+                                // Dates generator (next 7 days starting tomorrow)
+                                val calendar = Calendar.getInstance()
+                                val sdfDate = SimpleDateFormat("EEE, MMM d", Locale.US)
+                                val dateOptions = remember {
+                                    val list = mutableListOf<String>()
+                                    // Start tomorrow
+                                    calendar.add(Calendar.DAY_OF_YEAR, 1)
+                                    for (i in 1..7) {
+                                        list.add(sdfDate.format(calendar.time))
+                                        calendar.add(Calendar.DAY_OF_YEAR, 1)
+                                    }
+                                    list
+                                }
+
+                                val timeSlots = listOf(
+                                    "09:00 AM - 12:00 PM (Morning)",
+                                    "12:00 PM - 03:00 PM (Afternoon)",
+                                    "03:00 PM - 06:00 PM (Evening)",
+                                    "06:00 PM - 09:00 PM (Night)"
+                                )
+
+                                // Pickup Picker UI
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Schedule, "Pickup", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("1. Free Pickup Appointment Date", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(dateOptions) { opt ->
+                                                val isSelected = selectedPickupDate == opt
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { 
+                                                        selectedPickupDate = opt
+                                                        // Automatically set delivery date to pickup + 2 days as suggestion
+                                                        val pIdx = dateOptions.indexOf(opt)
+                                                        if (pIdx >= 0 && selectedDeliveryDate.isEmpty()) {
+                                                            val sugIdx = (pIdx + 2).coerceAtMost(dateOptions.lastIndex)
+                                                            selectedDeliveryDate = dateOptions[sugIdx]
+                                                        }
+                                                    },
+                                                    label = { Text(opt, fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                                    )
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("Select Pickup Hour Slot", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(timeSlots) { slot ->
+                                                val isSelected = selectedPickupSlot == slot
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { selectedPickupSlot = slot },
+                                                    label = { Text(slot.substringBefore(" ("), fontSize = 10.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Delivery Picker UI
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.LocalShipping, "Delivery", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("2. Clean Delivery Appointment Date", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(dateOptions) { opt ->
+                                                val isSelected = selectedDeliveryDate == opt
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { selectedDeliveryDate = opt },
+                                                    label = { Text(opt, fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFF2E7D32),
+                                                        selectedLabelColor = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("Select Delivery Hour Slot", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(timeSlots) { slot ->
+                                                val isSelected = selectedDeliverySlot == slot
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { selectedDeliverySlot = slot },
+                                                    label = { Text(slot.substringBefore(" ("), fontSize = 10.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFF1B5E20),
+                                                        selectedLabelColor = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (selectedPickupDate.isNotEmpty() && selectedPickupSlot.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Event, "Summary", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Selected Order Window:\nPickup: $selectedPickupDate [$selectedPickupSlot]\nDelivery: ${selectedDeliveryDate.ifEmpty { "Not Chosen" }} [${selectedDeliverySlot.ifEmpty { "Not Chosen" }}]",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Divider()
+                                Spacer(modifier = Modifier.height(12.dp))
+
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 // Real Card validation helper indicator
-                                val LuhnCheckPassed = viewModel.validateCardLuhn(cardNum)
+                                 Text(
+                                     text = "Select Payment Method",
+                                     style = MaterialTheme.typography.titleSmall,
+                                     fontWeight = FontWeight.Bold,
+                                     color = MaterialTheme.colorScheme.primary,
+                                     modifier = Modifier.padding(bottom = 8.dp)
+                                 )
+
+                                 Row(
+                                     modifier = Modifier
+                                         .fillMaxWidth()
+                                         .padding(vertical = 4.dp),
+                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                 ) {
+                                     // COD option
+                                     Card(
+                                         modifier = Modifier
+                                             .weight(1f)
+                                             .clickable { selectedPaymentMethod = "cod" }
+                                             .testTag("pay_method_cod"),
+                                         colors = CardDefaults.cardColors(
+                                             containerColor = if (selectedPaymentMethod == "cod") {
+                                                 MaterialTheme.colorScheme.primaryContainer
+                                             } else {
+                                                 MaterialTheme.colorScheme.surface
+                                             }
+                                         ),
+                                         border = if (selectedPaymentMethod == "cod") {
+                                             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                                         } else {
+                                             BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                         }
+                                     ) {
+                                         Column(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(12.dp),
+                                             horizontalAlignment = Alignment.CenterHorizontally
+                                         ) {
+                                             Icon(
+                                                 imageVector = Icons.Default.AccountBalanceWallet,
+                                                 contentDescription = "COD Icon",
+                                                 tint = if (selectedPaymentMethod == "cod") {
+                                                     MaterialTheme.colorScheme.primary
+                                                 } else {
+                                                     MaterialTheme.colorScheme.onSurfaceVariant
+                                                 }
+                                             )
+                                             Spacer(modifier = Modifier.height(6.dp))
+                                             Text(
+                                                 text = "Cash on Delivery",
+                                                 fontWeight = FontWeight.Bold,
+                                                 fontSize = 12.sp,
+                                                 color = if (selectedPaymentMethod == "cod") {
+                                                     MaterialTheme.colorScheme.onPrimaryContainer
+                                                 } else {
+                                                     MaterialTheme.colorScheme.onSurface
+                                                 }
+                                             )
+                                         }
+                                     }
+
+                                     // Online Payment option
+                                     Card(
+                                         modifier = Modifier
+                                             .weight(1f)
+                                             .clickable { selectedPaymentMethod = "card" }
+                                             .testTag("pay_method_card"),
+                                         colors = CardDefaults.cardColors(
+                                             containerColor = if (selectedPaymentMethod == "card") {
+                                                 MaterialTheme.colorScheme.primaryContainer
+                                             } else {
+                                                 MaterialTheme.colorScheme.surface
+                                             }
+                                         ),
+                                         border = if (selectedPaymentMethod == "card") {
+                                             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                                         } else {
+                                             BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                         }
+                                     ) {
+                                         Column(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(12.dp),
+                                             horizontalAlignment = Alignment.CenterHorizontally
+                                         ) {
+                                             Icon(
+                                                 imageVector = Icons.Default.CreditCard,
+                                                 contentDescription = "Card Icon",
+                                                 tint = if (selectedPaymentMethod == "card") {
+                                                     MaterialTheme.colorScheme.primary
+                                                 } else {
+                                                     MaterialTheme.colorScheme.onSurfaceVariant
+                                                 }
+                                             )
+                                             Spacer(modifier = Modifier.height(6.dp))
+                                             Text(
+                                                 text = "Online Card",
+                                                 fontWeight = FontWeight.Bold,
+                                                 fontSize = 12.sp,
+                                                 color = if (selectedPaymentMethod == "card") {
+                                                     MaterialTheme.colorScheme.onPrimaryContainer
+                                                 } else {
+                                                     MaterialTheme.colorScheme.onSurface
+                                                 }
+                                             )
+                                         }
+                                     }
+                                 }
+
+                                 Spacer(modifier = Modifier.height(14.dp))
+
+                                 if (selectedPaymentMethod == "cod") {
+                                     Row(
+                                         modifier = Modifier
+                                             .fillMaxWidth()
+                                             .clip(RoundedCornerShape(8.dp))
+                                             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                                             .padding(12.dp),
+                                         verticalAlignment = Alignment.CenterVertically
+                                     ) {
+                                         Icon(
+                                             imageVector = Icons.Default.CheckCircle,
+                                             contentDescription = "COD Info",
+                                             tint = MaterialTheme.colorScheme.primary,
+                                             modifier = Modifier.size(20.dp)
+                                         )
+                                         Spacer(modifier = Modifier.width(8.dp))
+                                         Text(
+                                             text = "Cash on Delivery chosen. Pay with Cash, Card, or UPI upon delivery.",
+                                             fontSize = 11.sp,
+                                             fontWeight = FontWeight.SemiBold,
+                                             color = MaterialTheme.colorScheme.onPrimaryContainer
+                                         )
+                                     }
+                                     Spacer(modifier = Modifier.height(14.dp))
+                                 }
+
+                                 val LuhnCheckPassed = if (selectedPaymentMethod == "cod") true else viewModel.validateCardLuhn(cardNum)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1138,7 +1537,7 @@ fun CartScreen(
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .testTag("card_number_input"),
+                                        .testTag("card_number_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
                                     shape = RoundedCornerShape(10.dp)
                                 )
 
@@ -1152,7 +1551,7 @@ fun CartScreen(
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .testTag("cardholder_name_input"),
+                                        .testTag("cardholder_name_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
                                     shape = RoundedCornerShape(10.dp)
                                 )
 
@@ -1167,7 +1566,7 @@ fun CartScreen(
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .testTag("expiry_input"),
+                                            .testTag("expiry_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
@@ -1180,7 +1579,7 @@ fun CartScreen(
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier
                                             .weight(0.8f)
-                                            .testTag("cvv_input"),
+                                            .testTag("cvv_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                 }
@@ -1215,11 +1614,14 @@ fun CartScreen(
                                 Button(
                                     onClick = {
                                         viewModel.checkout(
+                                            paymentMethod = selectedPaymentMethod,
                                             cardNumber = cardNum,
                                             cardHolder = cardHolder,
                                             expiryDate = cardExpiry,
                                             cvv = cardCvv,
-                                            shippingAddress = addressStr
+                                            shippingAddress = addressStr,
+                                            pickupSchedule = if (selectedPickupDate.isNotEmpty() && selectedPickupSlot.isNotEmpty()) "$selectedPickupDate | $selectedPickupSlot" else "",
+                                            deliverySchedule = if (selectedDeliveryDate.isNotEmpty() && selectedDeliverySlot.isNotEmpty()) "$selectedDeliveryDate | $selectedDeliverySlot" else ""
                                         )
                                     },
                                     enabled = !isProcessing && summary.items.isNotEmpty(),
@@ -1458,7 +1860,7 @@ fun CheckoutSuccessDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Payment Authenticated!",
+                    text = if (order.paymentCardLast4.isEmpty()) "Order Successfully Booked!" else "Payment Authenticated!",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1468,7 +1870,7 @@ fun CheckoutSuccessDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Your order of handmade goods is safe.",
+                    text = if (order.paymentCardLast4.isEmpty()) "Your order has been booked as Cash on Delivery." else "Your order of handmade goods is safe.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
                     textAlign = TextAlign.Center
@@ -1497,8 +1899,8 @@ fun CheckoutSuccessDialog(
                             Text("$${String.format(Locale.US, "%.2f", order.totalAmount)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Payment", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                            Text(order.paymentCardLast4, fontSize = 11.sp)
+                            Text("Payment Method", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                            Text(if (order.paymentCardLast4.isEmpty()) "Cash on Delivery (COD)" else order.paymentCardLast4, fontSize = 11.sp)
                         }
                     }
                 }
@@ -1529,16 +1931,158 @@ fun CheckoutSuccessDialog(
 fun AdminInventoryScreen(
     viewModel: MarketViewModel
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val loggedInUser by viewModel.loggedInUser.collectAsState()
     val products by viewModel.productsState.collectAsState()
 
     var showAddForm by remember { mutableStateOf(false) }
     var editingProduct by remember { mutableStateOf<Product?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    // Security Gate variables
+    var secureEmail by remember { mutableStateOf("") }
+    var securePassword by remember { mutableStateOf("") }
+    var securityError by remember { mutableStateOf<String?>(null) }
+    var isAuthenticating by remember { mutableStateOf(false) }
+
+    if (loggedInUser == null || !loggedInUser!!.isAdmin) {
+        // Render beautiful and high-fidelity Secure Administrator Authorization Gateway
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Security lock",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "ADMIN SECURITY GATEWAY",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = 1.sp
+                    )
+
+                    Text(
+                        text = "Sign-in to access the Snowwhite active inventory catalog panel.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = secureEmail,
+                        onValueChange = { secureEmail = it; securityError = null },
+                        label = { Text("Admin Email") },
+                        placeholder = { Text("admin@snowwhite.com") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = securePassword,
+                        onValueChange = { securePassword = it; securityError = null },
+                        label = { Text("Security Password") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+
+                    if (securityError != null) {
+                        Text(
+                            text = securityError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            if (secureEmail.isBlank() || securePassword.isBlank()) {
+                                securityError = "Identify yourself by completing both fields."
+                                return@Button
+                            }
+                            isAuthenticating = true
+                            viewModel.login(secureEmail, securePassword) { isOk, errorMsg ->
+                                isAuthenticating = false
+                                if (isOk) {
+                                    securityError = null
+                                } else {
+                                    securityError = errorMsg ?: "Credentials mismatch: Secure Operative Login Rejected."
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = !isAuthenticating,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isAuthenticating) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text("Unlock Portal Terminal")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Demo Credentials: admin@snowwhite.com / snowwhiteadmin",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    } else {
+        // Authenticated Admin Dashboard Layout
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
         // Top header title bar layout
         Card(
             modifier = Modifier
@@ -1558,7 +2102,7 @@ fun AdminInventoryScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Snow-White Portal",
+                            text = "Snowwhite Portal",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                         )
@@ -1875,9 +2419,23 @@ fun AdminInventoryScreen(
     if (showAddForm) {
         AddEditProductDialog(
             product = null,
+            viewModel = viewModel,
             onDismiss = { showAddForm = false },
-            onConfirm = { title, desc, price, cat, stock, artisan ->
-                viewModel.addNewProduct(title, desc, price, cat, stock, artisan)
+            onConfirm = { title, desc, price, cat, stock, artisan, imgUrl ->
+                viewModel.uploadProduct(
+                    title = title,
+                    price = price,
+                    stockLeft = stock,
+                    imageUrl = imgUrl,
+                    description = desc,
+                    category = cat
+                ) { success, errorMsg ->
+                    if (success) {
+                        android.widget.Toast.makeText(context, "Product Uploaded Successfully via API!", android.widget.Toast.LENGTH_LONG).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "API Error: ${errorMsg ?: "Could not upload"}", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
                 showAddForm = false
             }
         )
@@ -1886,20 +2444,23 @@ fun AdminInventoryScreen(
     editingProduct?.let { orig ->
         AddEditProductDialog(
             product = orig,
+            viewModel = viewModel,
             onDismiss = { editingProduct = null },
-            onConfirm = { title, desc, price, cat, stock, artisan ->
+            onConfirm = { title, desc, price, cat, stock, artisan, imgUrl ->
                 viewModel.updateProductDetails(orig.copy(
                     title = title,
                     description = desc,
                     price = price,
                     category = cat,
                     stock = stock,
-                    artisanName = artisan
+                    artisanName = artisan,
+                    imageUrl = imgUrl
                 ))
                 editingProduct = null
             }
         )
     }
+}
 }
 
 @Composable
@@ -1929,14 +2490,16 @@ fun AdminStatBadge(
 @Composable
 fun AddEditProductDialog(
     product: Product?,
+    viewModel: MarketViewModel,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Double, String, Int, String) -> Unit
+    onConfirm: (String, String, Double, String, Int, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf(product?.title ?: "") }
     var desc by remember { mutableStateOf(product?.description ?: "") }
     var priceStr by remember { mutableStateOf(product?.price?.toString() ?: "") }
     var stockStr by remember { mutableStateOf(product?.stock?.toString() ?: "") }
     var artisan by remember { mutableStateOf(product?.artisanName ?: "") }
+    var imageUrl by remember { mutableStateOf(product?.imageUrl ?: "") }
     
     val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
     var selectedCatIndex by remember { 
@@ -1944,6 +2507,35 @@ fun AddEditProductDialog(
     }
 
     var errorsStr by remember { mutableStateOf<String?>(null) }
+
+    var isUploadingImage by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes()
+                inputStream?.close()
+                if (bytes != null) {
+                    val base64String = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    isUploadingImage = true
+                    viewModel.uploadImage(base64String) { url, errorMsg ->
+                        isUploadingImage = false
+                        if (url != null) {
+                            imageUrl = url
+                            android.widget.Toast.makeText(context, "Image uploaded successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Upload failed: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Failed to read image: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -2005,6 +2597,53 @@ fun AddEditProductDialog(
                     maxLines = 3,
                     shape = RoundedCornerShape(10.dp)
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = imageUrl,
+                    onValueChange = { imageUrl = it },
+                    label = { Text("Product Image URL") },
+                    placeholder = { Text("https://example.com/image.jpg") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("admin_val_image_url"),
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    enabled = !isUploadingImage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("admin_pick_gallery_image"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    if (isUploadingImage) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Uploading image to live server...")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = "Pick Image",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Pick image from gallery")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -2099,12 +2738,12 @@ fun AddEditProductDialog(
                         onClick = {
                             val pr = priceStr.toDoubleOrNull()
                             val st = stockStr.toIntOrNull()
-                            if (title.isBlank() || artisan.isBlank() || desc.isBlank() || pr == null || st == null) {
+                            if (title.isBlank() || artisan.isBlank() || desc.isBlank() || pr == null || st == null || imageUrl.isBlank()) {
                                 errorsStr = "Please fill in all details with valid values."
                             } else if (pr <= 0.0 || st < 0) {
                                 errorsStr = "Price must be > 0 and Stock must be >= 0."
                             } else {
-                                onConfirm(title, desc, pr, catList[selectedCatIndex], st, artisan)
+                                onConfirm(title, desc, pr, catList[selectedCatIndex], st, artisan, imageUrl)
                             }
                         },
                         modifier = Modifier
@@ -2298,7 +2937,7 @@ fun OrderHistoryCard(order: Order) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Column {
                     Text(
-                        text = "Shipping Address:",
+                        text = "Pickup & Delivery Address:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.outline
@@ -2308,6 +2947,53 @@ fun OrderHistoryCard(order: Order) {
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+            }
+
+            if (order.pickupSchedule.isNotEmpty() || order.deliverySchedule.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        if (order.pickupSchedule.isNotEmpty()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Scheduled Pickup: ",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = order.pickupSchedule,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        if (order.deliverySchedule.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF2E7D32))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Scheduled Delivery: ",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = order.deliverySchedule,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

@@ -31,7 +31,9 @@ data class Order(
     val totalAmount: Double,
     val status: String,       // "Processing", "Shipped", "Delivered"
     val paymentCardLast4: String,
-    val shippingAddress: String
+    val shippingAddress: String,
+    val pickupSchedule: String = "",
+    val deliverySchedule: String = ""
 )
 
 @Entity(tableName = "user_profiles")
@@ -44,7 +46,9 @@ data class UserProfile(
     val membershipPoints: Int = 100,
     val isLoggedIn: Boolean = false,
     val savedPreferences: String = "", // Comma-separated list of product IDs or category names
-    val purchaseHistory: String = ""   // Comma-separated record of completed transactions/orders
+    val purchaseHistory: String = "",   // Comma-separated record of completed transactions/orders
+    val isAdmin: Boolean = false,
+    val role: String = "customer"
 )
 
 @Dao

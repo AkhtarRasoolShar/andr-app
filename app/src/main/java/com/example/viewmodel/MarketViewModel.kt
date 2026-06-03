@@ -13,6 +13,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+sealed interface ApiProductState {
+    object Loading : ApiProductState
+    data class Success(val products: List<Product>) : ApiProductState
+    data class Error(val message: String) : ApiProductState
+}
+
 data class CartUiItem(
     val cartItem: CartItem,
     val product: Product
@@ -132,6 +138,9 @@ class MarketViewModel(
             initialValue = null
         )
 
+    private val _apiState = MutableStateFlow<ApiProductState>(ApiProductState.Loading)
+    val apiState: StateFlow<ApiProductState> = _apiState.asStateFlow()
+
     // Payment Sandbox / Checkout states
     var isPaymentProcessing by mutableStateOf(false)
         private set
@@ -143,9 +152,18 @@ class MarketViewModel(
         private set
 
     init {
-        // Initialize Database with items if empty
+        loadProductsFromApi()
+    }
+
+    fun loadProductsFromApi() {
         viewModelScope.launch {
-            repository.ensureSeededData()
+            _apiState.value = ApiProductState.Loading
+            try {
+                val list = repository.fetchProductsFromRemote()
+                _apiState.value = ApiProductState.Success(list)
+            } catch (e: Exception) {
+                _apiState.value = ApiProductState.Error(e.message ?: "Failed to connect to remote server.")
+            }
         }
     }
 
@@ -193,6 +211,48 @@ class MarketViewModel(
     fun logout() {
         viewModelScope.launch {
             repository.logout()
+        }
+    }
+
+    fun uploadProduct(
+        title: String,
+        price: Double,
+        stockLeft: Int,
+        imageUrl: String,
+        description: String = "Premium Service",
+        category: String = "Specialized",
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val success = repository.uploadProduct(
+                    title = title,
+                    price = price,
+                    stockLeft = stockLeft,
+                    imageUrl = imageUrl,
+                    description = description,
+                    category = category
+                )
+                if (success) {
+                    loadProductsFromApi() // force refresh
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Unknown upload rejection.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Product upload failure.")
+            }
+        }
+    }
+
+    fun uploadImage(base64Image: String, onResult: (String?, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val url = repository.uploadImage(base64Image)
+                onResult(url, null)
+            } catch (e: Exception) {
+                onResult(null, e.localizedMessage ?: "Image upload fail.")
+            }
         }
     }
 
@@ -323,23 +383,33 @@ class MarketViewModel(
 
     // Checkout / Simulated Payment Gateway
     fun checkout(
+        paymentMethod: String,
         cardNumber: String,
         cardHolder: String,
         expiryDate: String,
         cvv: String,
-        shippingAddress: String
+        shippingAddress: String,
+        pickupSchedule: String,
+        deliverySchedule: String
     ) {
         // Double Check Form entries
-        if (cardNumber.length < 13 || cardHolder.isBlank() || expiryDate.isBlank() || cvv.length < 3 || shippingAddress.isBlank()) {
-            paymentResultError = "Please complete all payment and shipping fields correctly."
+        if (shippingAddress.isBlank() || pickupSchedule.isBlank() || deliverySchedule.isBlank()) {
+            paymentResultError = "Please complete all fields including pickup and delivery schedules."
             return
         }
 
-        // Apply basic check digits verification logic (Luhn check)
-        val isCardValid = validateCardLuhn(cardNumber)
-        if (!isCardValid) {
-            paymentResultError = "Payment failed: Invalid Credit Card number check (Luhn Algorithm mismatch)."
-            return
+        if (paymentMethod != "cod") {
+            if (cardNumber.length < 13 || cardHolder.isBlank() || expiryDate.isBlank() || cvv.length < 3) {
+                paymentResultError = "Please complete all credit card fields."
+                return
+            }
+
+            // Apply basic check digits verification logic (Luhn check)
+            val isCardValid = validateCardLuhn(cardNumber)
+            if (!isCardValid) {
+                paymentResultError = "Payment failed: Invalid Credit Card number check (Luhn Algorithm mismatch)."
+                return
+            }
         }
 
         viewModelScope.launch {
@@ -348,13 +418,16 @@ class MarketViewModel(
             paymentResultSuccess = null
             
             // Simulate bank gateway latency to depict processing & verification sequence
-            delay(2200)
+            delay(1500)
 
             try {
-                val cardLast4 = cardNumber.takeLast(4)
+                val cardLast4 = if (paymentMethod == "cod") "" else cardNumber.takeLast(4)
                 val order = repository.checkOutCart(
-                    cardLast4 = "Visa *${cardLast4}",
-                    shippingAddress = shippingAddress
+                    paymentMethod = paymentMethod,
+                    cardLast4 = if (paymentMethod == "cod") "" else "Visa *${cardLast4}",
+                    shippingAddress = shippingAddress,
+                    pickupSchedule = pickupSchedule,
+                    deliverySchedule = deliverySchedule
                 )
                 paymentResultSuccess = order
                 clearPromoCode()
