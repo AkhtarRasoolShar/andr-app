@@ -1,0 +1,142 @@
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.ViewModelProvider
+import com.example.data.AppDatabase
+import com.example.data.InventoryRepository
+import com.example.ui.screens.AdminInventoryScreen
+import com.example.ui.screens.CartScreen
+import com.example.ui.screens.MainCatalogScreen
+import com.example.ui.screens.OrdersScreen
+import com.example.ui.theme.MyApplicationTheme
+import com.example.viewmodel.MarketViewModel
+import com.example.viewmodel.MarketViewModelFactory
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Setup local offline database and repository references
+        val database = AppDatabase.getDatabase(applicationContext)
+        val repository = InventoryRepository(database.marketplaceDao())
+        
+        // Setup state viewModel using a custom factory
+        val viewModel = ViewModelProvider(
+            this,
+            MarketViewModelFactory(application, repository)
+        )[MarketViewModel::class.java]
+
+        enableEdgeToEdge()
+        
+        setContent {
+            MyApplicationTheme {
+                var selectedTab by remember { mutableStateOf(0) }
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        NavigationBar(
+                            modifier = Modifier
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .testTag("main_bottom_nav"),
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            tonalElevation = NavigationBarDefaults.Elevation // soft tonal contrast
+                        ) {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                label = { Text("Shop") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
+                                        contentDescription = "Explore Crafts Catalog"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_shop")
+                            )
+
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                label = { Text("Cart") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
+                                        contentDescription = "Secured Invoice Bag"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_cart")
+                            )
+
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                label = { Text("Artisan") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
+                                        contentDescription = "Artisan Cabin inventory"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_admin")
+                            )
+
+                            NavigationBarItem(
+                                selected = selectedTab == 3,
+                                onClick = { selectedTab = 3 },
+                                label = { Text("Orders") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt,
+                                        contentDescription = "Receipt ledger"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_orders")
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                        when (selectedTab) {
+                            0 -> MainCatalogScreen(
+                                viewModel = viewModel,
+                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
+                            )
+                            1 -> CartScreen(
+                                viewModel = viewModel,
+                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
+                            )
+                            2 -> AdminInventoryScreen(viewModel = viewModel)
+                            3 -> OrdersScreen(
+                                viewModel = viewModel,
+                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
