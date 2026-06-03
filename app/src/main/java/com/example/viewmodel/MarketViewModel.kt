@@ -214,6 +214,16 @@ class MarketViewModel(
         }
     }
 
+    fun autoLoginFromCache(email: String, fullName: String, role: String) {
+        viewModelScope.launch {
+            try {
+                repository.ensureAutoLoginUser(email, fullName, role)
+            } catch (e: Exception) {
+                // Ignore matching mistakes
+            }
+        }
+    }
+
     fun uploadProduct(
         title: String,
         price: Double,
@@ -378,6 +388,55 @@ class MarketViewModel(
     fun deleteProduct(product: Product) {
         viewModelScope.launch {
             repository.deleteProduct(product)
+        }
+    }
+
+    fun updateProductRemote(
+        id: Int,
+        title: String,
+        price: Double,
+        stockLeft: Int,
+        imageUrl: String,
+        description: String,
+        category: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val success = repository.updateProductRemote(
+                    id = id,
+                    title = title,
+                    price = price,
+                    stockLeft = stockLeft,
+                    imageUrl = imageUrl,
+                    description = description,
+                    category = category
+                )
+                if (success) {
+                    loadProductsFromApi() // force refresh
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Unknown update rejection.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Product update failure.")
+            }
+        }
+    }
+
+    fun deleteProductRemote(productId: Int, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val success = repository.deleteProductRemote(productId)
+                if (success) {
+                    loadProductsFromApi() // force refresh
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Unknown deletion rejection.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Product deletion failure.")
+            }
         }
     }
 

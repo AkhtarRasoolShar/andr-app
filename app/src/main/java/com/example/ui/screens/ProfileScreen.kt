@@ -102,7 +102,10 @@ fun ProfileScreen(
             UserProfileCard(
                 user = user,
                 allOrders = allOrders,
-                onLogout = { viewModel.logout() },
+                onLogout = { 
+                    viewModel.logout() 
+                    onNavigateToTab(4)
+                },
                 onUpdatePreferences = { newPrefs ->
                     viewModel.updateSavedPreferences(newPrefs)
                 }

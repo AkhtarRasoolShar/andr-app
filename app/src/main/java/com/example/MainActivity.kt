@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(applicationContext)
         com.example.data.FirestoreService.initialize(applicationContext, database.marketplaceDao())
         com.example.data.FirebaseAuthService.initialize(applicationContext)
-        val repository = InventoryRepository(database.marketplaceDao())
+        val repository = InventoryRepository(database.marketplaceDao(), applicationContext)
         
         // Setup state viewModel using a custom factory
         val viewModel = ViewModelProvider(
@@ -55,87 +55,129 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         
-        setContent {
-            MyApplicationTheme {
-                var selectedTab by remember { mutableStateOf(0) }
+         setContent {
+             MyApplicationTheme {
+                 val sharedPrefs = remember {
+                     applicationContext.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+                 }
+                 val initialTab = remember {
+                     val cachedId = sharedPrefs.getString("id", null)
+                     val cachedRole = sharedPrefs.getString("role", null)
+                     if (cachedId != null) {
+                         if (cachedRole.equals("admin", ignoreCase = true)) 2 else 0
+                     } else {
+                         4 // Start on Login Screen (ProfileScreen)
+                     }
+                 }
+                 var selectedTab by remember { mutableStateOf(initialTab) }
+                 val loggedInUser by viewModel.loggedInUser.collectAsState()
+                 val cartSummary by viewModel.cartSummary.collectAsState()
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        NavigationBar(
-                            modifier = Modifier
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .testTag("main_bottom_nav"),
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            tonalElevation = NavigationBarDefaults.Elevation // soft tonal contrast
-                        ) {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                label = { Text("Shop") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                                        contentDescription = "Explore Snowhite Boutique Catalog"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_shop")
-                            )
+                 LaunchedEffect(Unit) {
+                     val cachedEmail = sharedPrefs.getString("id", null)
+                     val cachedName = sharedPrefs.getString("name", null)
+                     val cachedRole = sharedPrefs.getString("role", null)
+                     if (cachedEmail != null) {
+                         viewModel.autoLoginFromCache(cachedEmail, cachedName ?: "", cachedRole ?: "")
+                     }
+                 }
 
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                label = { Text("Bag") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
-                                        contentDescription = "Shopping Bag and Checkout"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_cart")
-                            )
+                 LaunchedEffect(loggedInUser) {
+                     if (loggedInUser?.isAdmin != true && selectedTab == 2) {
+                         selectedTab = 0
+                     }
+                 }
 
-                            NavigationBarItem(
-                                selected = selectedTab == 3,
-                                onClick = { selectedTab = 3 },
-                                label = { Text("Orders") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt,
-                                        contentDescription = "Order tracking history"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_orders")
-                            )
+                 Scaffold(
+                     modifier = Modifier.fillMaxSize(),
+                     bottomBar = {
+                         NavigationBar(
+                             modifier = Modifier
+                                 .windowInsetsPadding(WindowInsets.navigationBars)
+                                 .testTag("main_bottom_nav"),
+                             containerColor = MaterialTheme.colorScheme.surface,
+                             tonalElevation = NavigationBarDefaults.Elevation // soft tonal contrast
+                         ) {
+                             NavigationBarItem(
+                                 selected = selectedTab == 0,
+                                 onClick = { selectedTab = 0 },
+                                 label = { Text("Shop") },
+                                 icon = {
+                                     Icon(
+                                         imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
+                                         contentDescription = "Explore Snowhite Boutique Catalog"
+                                     )
+                                 },
+                                 modifier = Modifier.testTag("tab_shop")
+                             )
 
-                            NavigationBarItem(
-                                selected = selectedTab == 4,
-                                onClick = { selectedTab = 4 },
-                                label = { Text("Account") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
-                                        contentDescription = "User loyalty account and settings"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_profile")
-                            )
+                             NavigationBarItem(
+                                 selected = selectedTab == 1,
+                                 onClick = { selectedTab = 1 },
+                                 label = { Text("Bag") },
+                                 icon = {
+                                     val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
+                                     BadgedBox(
+                                         badge = {
+                                             if (qtyCount > 0) {
+                                                 Badge(modifier = Modifier.testTag("cart_badge_count")) {
+                                                     Text(text = "$qtyCount")
+                                                 }
+                                             }
+                                         }
+                                     ) {
+                                         Icon(
+                                             imageVector = if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
+                                             contentDescription = "Shopping Bag and Checkout"
+                                         )
+                                     }
+                                 },
+                                 modifier = Modifier.testTag("tab_cart")
+                             )
 
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                label = { Text("Portal") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
-                                        contentDescription = "Merchant inventory controls"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_admin")
-                            )
-                        }
-                    }
-                ) { innerPadding ->
+                             NavigationBarItem(
+                                 selected = selectedTab == 3,
+                                 onClick = { selectedTab = 3 },
+                                 label = { Text("Orders") },
+                                 icon = {
+                                     Icon(
+                                         imageVector = if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt,
+                                         contentDescription = "Order tracking history"
+                                     )
+                                 },
+                                 modifier = Modifier.testTag("tab_orders")
+                             )
+
+                             NavigationBarItem(
+                                 selected = selectedTab == 4,
+                                 onClick = { selectedTab = 4 },
+                                 label = { Text("Account") },
+                                 icon = {
+                                     Icon(
+                                         imageVector = if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
+                                         contentDescription = "User loyalty account and settings"
+                                     )
+                                 },
+                                 modifier = Modifier.testTag("tab_profile")
+                             )
+
+                             if (loggedInUser?.isAdmin == true) {
+                                 NavigationBarItem(
+                                     selected = selectedTab == 2,
+                                     onClick = { selectedTab = 2 },
+                                     label = { Text("Portal") },
+                                     icon = {
+                                         Icon(
+                                             imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
+                                             contentDescription = "Merchant inventory controls"
+                                         )
+                                     },
+                                     modifier = Modifier.testTag("tab_admin")
+                                 )
+                             }
+                         }
+                     }
+                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
                         when (selectedTab) {
                             0 -> MainCatalogScreen(

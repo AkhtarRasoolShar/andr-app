@@ -47,6 +47,171 @@ import com.example.viewmodel.MarketViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import com.example.ui.theme.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.composed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import coil.compose.AsyncImage
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.app.Activity
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
+
+fun Modifier.shimmerEffect(): Modifier = composed {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_anim"
+    )
+
+    val shimmerColors = listOf(
+        Color(0xFFE0E0E0),
+        Color(0xFFF5F5F5),
+        Color(0xFFE0E0E0)
+    )
+
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset.Zero,
+        end = Offset(x = translateAnim.value, y = translateAnim.value)
+    )
+    background(brush)
+}
+
+@Composable
+fun ShimmerProductCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(240.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .shimmerEffect()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(modifier = Modifier.padding(12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .shimmerEffect()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .shimmerEffect()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AutoScrollingCarousel(
+    modifier: Modifier = Modifier
+) {
+    val promoImages = listOf(
+        "https://akhtarhussain.site/api/images/promo1.jpg",
+        "https://akhtarhussain.site/api/images/promo2.jpg",
+        "https://akhtarhussain.site/api/images/promo3.jpg",
+        "https://akhtarhussain.site/api/images/promo4.jpg"
+    )
+    val pagerState = rememberPagerState(pageCount = { promoImages.size })
+
+    LaunchedEffect(pagerState) {
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            try {
+                val nextPage = (pagerState.currentPage + 1) % promoImages.size
+                pagerState.animateScrollToPage(nextPage)
+            } catch (e: Exception) {
+                // Ignore transient swipe cancellation
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .testTag("promo_carousel")
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            AsyncImage(
+                model = promoImages[page],
+                contentDescription = "Promotional Offer ${page + 1}",
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            repeat(promoImages.size) { index ->
+                val isSelected = pagerState.currentPage == index
+                Box(
+                    modifier = Modifier
+                        .size(if (isSelected) 8.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                )
+            }
+        }
+    }
+}
 
 // ==========================================
 // PART 1: PROCEDURAL CUSTOM DECORATIVE CANVAS
@@ -381,6 +546,46 @@ fun MainCatalogScreen(
     var activeProductForDetail by remember { mutableStateOf<Product?>(null) }
     val focusManager = LocalFocusManager.current
 
+    val context = LocalContext.current
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val speechText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!speechText.isNullOrEmpty()) {
+                viewModel.updateSearchQuery(speechText)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now to search...")
+                }
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Voice input not supported on this device.", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Audio permission is required for voice search.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun startVoiceSearch() {
+        val pm = context.packageManager
+        val dummyIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        if (dummyIntent.resolveActivity(pm) == null) {
+            Toast.makeText(context, "Voice input not supported on this device.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -450,8 +655,18 @@ fun MainCatalogScreen(
                     leadingIcon = { Icon(Icons.Default.Search, "Search icon") },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                            IconButton(
+                                onClick = { viewModel.updateSearchQuery("") },
+                                modifier = Modifier.testTag("clear_search_btn")
+                            ) {
                                 Icon(Icons.Default.Clear, "Clear trigger")
+                            }
+                        } else {
+                            IconButton(
+                                onClick = { startVoiceSearch() },
+                                modifier = Modifier.testTag("voice_search_btn")
+                            ) {
+                                Icon(Icons.Default.Mic, "Voice search microphone logo")
                             }
                         }
                     },
@@ -470,6 +685,10 @@ fun MainCatalogScreen(
                 )
             }
         }
+
+        AutoScrollingCarousel(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
 
         // Category Selection Stepper/Scrollable chips
         val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
@@ -523,23 +742,17 @@ fun MainCatalogScreen(
 
         when {
             apiState is ApiProductState.Loading && products.isEmpty() -> {
-                Box(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Loading premium care services...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
+                    items(6) {
+                        ShimmerProductCard()
                     }
                 }
             }
@@ -1009,12 +1222,55 @@ fun CartScreen(
                     }
 
                     items(summary.items, key = { it.cartItem.id }) { uiItem ->
-                        CartItemRow(
-                            uiItem = uiItem,
-                            onIncrement = { viewModel.addToCart(uiItem.product) },
-                            onDecrement = { viewModel.decreaseCartQuantity(uiItem.product.id) },
-                            onCancel = { viewModel.removeFromCart(uiItem.product.id) }
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { dismissValue ->
+                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.removeFromCart(uiItem.product.id)
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
                         )
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Delete",
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete item",
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                }
+                            },
+                            enableDismissFromStartToEnd = false,
+                            modifier = Modifier.testTag("swipe_dismiss_${uiItem.product.id}")
+                        ) {
+                            CartItemRow(
+                                uiItem = uiItem,
+                                onIncrement = { viewModel.addToCart(uiItem.product) },
+                                onDecrement = { viewModel.decreaseCartQuantity(uiItem.product.id) },
+                                onCancel = { viewModel.removeFromCart(uiItem.product.id) }
+                            )
+                        }
                     }
 
                     // Promo Code Section
@@ -1937,6 +2193,7 @@ fun AdminInventoryScreen(
 
     var showAddForm by remember { mutableStateOf(false) }
     var editingProduct by remember { mutableStateOf<Product?>(null) }
+    var deletingProductCandidate by remember { mutableStateOf<Product?>(null) }
 
     // Security Gate variables
     var secureEmail by remember { mutableStateOf("") }
@@ -2400,7 +2657,7 @@ fun AdminInventoryScreen(
                                 }
 
                                 IconButton(
-                                    onClick = { viewModel.deleteProduct(item) },
+                                    onClick = { deletingProductCandidate = item },
                                     modifier = Modifier
                                         .size(32.dp)
                                         .testTag("admin_delete_${item.id}")
@@ -2447,17 +2704,54 @@ fun AdminInventoryScreen(
             viewModel = viewModel,
             onDismiss = { editingProduct = null },
             onConfirm = { title, desc, price, cat, stock, artisan, imgUrl ->
-                viewModel.updateProductDetails(orig.copy(
+                viewModel.updateProductRemote(
+                    id = orig.id,
                     title = title,
-                    description = desc,
                     price = price,
-                    category = cat,
-                    stock = stock,
-                    artisanName = artisan,
-                    imageUrl = imgUrl
-                ))
+                    stockLeft = stock,
+                    imageUrl = imgUrl,
+                    description = desc,
+                    category = cat
+                ) { success, errorMsg ->
+                    if (success) {
+                        android.widget.Toast.makeText(context, "Product updated details successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Update failed: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
                 editingProduct = null
             }
+        )
+    }
+
+    deletingProductCandidate?.let { prod ->
+        AlertDialog(
+            onDismissRequest = { deletingProductCandidate = null },
+            title = { Text("Confirm Deletion") },
+            text = { Text("Are you sure you want to permanently delete \"${prod.title}\"?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteProductRemote(prod.id) { success, errorMsg ->
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Item deleted successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(context, "Delete failed: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        deletingProductCandidate = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingProductCandidate = null }) {
+                    Text("Cancel")
+                }
+            },
+            modifier = Modifier.testTag("delete_confirmation_dialog")
         )
     }
 }

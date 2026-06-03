@@ -62,6 +62,30 @@ data class AddProductResponse(
     val message: String? = null
 )
 
+data class UpdateProductRequest(
+    val id: Int,
+    val title: String,
+    val price: Double,
+    @Json(name = "stock_left") val stockLeft: Int,
+    @Json(name = "image_url") val imageUrl: String,
+    val description: String = "Premium Service",
+    val category: String = "Specialized"
+)
+
+data class UpdateProductResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
+data class DeleteProductRequest(
+    val id: Int
+)
+
+data class DeleteProductResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
 data class UploadImageRequest(
     val image: String // base64-encoded string representation
 )
@@ -123,6 +147,12 @@ interface SnowwhiteApi {
 
     @POST("place_order.php")
     suspend fun placeOrder(@Body request: OrderRequest): OrderResponse
+
+    @POST("update_product.php")
+    suspend fun updateProduct(@Body request: UpdateProductRequest): UpdateProductResponse
+
+    @POST("delete_product.php")
+    suspend fun deleteProduct(@Body request: DeleteProductRequest): DeleteProductResponse
 }
 
 object RetrofitClient {

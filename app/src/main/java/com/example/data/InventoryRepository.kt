@@ -1,9 +1,10 @@
 package com.example.data
 
+import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
-class InventoryRepository(private val dao: MarketplaceDao) {
+class InventoryRepository(private val dao: MarketplaceDao, private val context: Context) {
 
     val allProducts: Flow<List<Product>> = dao.getAllProductsFlow()
     val allCartItems: Flow<List<CartItem>> = dao.getCartItemsFlow()
@@ -170,6 +171,20 @@ class InventoryRepository(private val dao: MarketplaceDao) {
             )
             dao.logoutAllUsers()
             dao.insertProfile(adminProfile)
+
+            // Cache session in SharedPreferences
+            try {
+                val sharedPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+                sharedPrefs.edit().apply {
+                    putString("id", returnedUser.email)
+                    putString("name", returnedUser.fullName)
+                    putString("role", userRole)
+                    apply()
+                }
+            } catch (e: Exception) {
+                // Ignore caching errors
+            }
+
             return true
         }
 
@@ -181,6 +196,12 @@ class InventoryRepository(private val dao: MarketplaceDao) {
             FirebaseAuthService.signOutFirebase()
         }
         dao.logoutAllUsers()
+        try {
+            val sharedPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+            sharedPrefs.edit().clear().apply()
+        } catch (e: Exception) {
+            // Ignore clearing errors
+        }
     }
 
     suspend fun updateSavedPreferences(email: String, preferencesRaw: String) {
@@ -350,6 +371,81 @@ class InventoryRepository(private val dao: MarketplaceDao) {
             }
         } else if (FirestoreService.isConfigured.value) {
             FirestoreService.seedInitialProductsInCloud(currentList)
+        }
+    }
+
+    suspend fun ensureAutoLoginUser(email: String, fullName: String, role: String) {
+        val existing = dao.getUserByEmail(email)
+        val isAdminRole = role.equals("admin", ignoreCase = true)
+        val profile = UserProfile(
+            email = email,
+            fullName = existing?.fullName ?: fullName,
+            phoneNumber = existing?.phoneNumber ?: "0300-1112233",
+            city = existing?.city ?: "Karachi",
+            deliveryAddress = existing?.deliveryAddress ?: "Head Office, Karachi",
+            membershipPoints = existing?.membershipPoints ?: 100,
+            isLoggedIn = true,
+            isAdmin = isAdminRole,
+            role = role
+        )
+        dao.logoutAllUsers()
+        dao.insertProfile(profile)
+    }
+
+    suspend fun updateProductRemote(
+        id: Int,
+        title: String,
+        price: Double,
+        stockLeft: Int,
+        imageUrl: String,
+        description: String = "Premium Service",
+        category: String = "Specialized"
+    ): Boolean {
+        val response = com.example.network.RetrofitClient.apiService.updateProduct(
+            com.example.network.UpdateProductRequest(
+                id = id,
+                title = title,
+                price = price,
+                stockLeft = stockLeft,
+                imageUrl = imageUrl,
+                description = description,
+                category = category
+            )
+        )
+        if (response.success) {
+            val existing = dao.getProductById(id)
+            if (existing != null) {
+                dao.updateProduct(existing.copy(
+                    title = title,
+                    price = price,
+                    stock = stockLeft,
+                    imageUrl = imageUrl,
+                    description = description,
+                    category = category
+                ))
+                if (FirestoreService.isConfigured.value) {
+                    FirestoreService.updateStockInCloud(id, stockLeft)
+                }
+            }
+            return true
+        } else {
+            throw Exception(response.message ?: "Server rejected product update.")
+        }
+    }
+
+    suspend fun deleteProductRemote(productId: Int): Boolean {
+        val response = com.example.network.RetrofitClient.apiService.deleteProduct(
+            com.example.network.DeleteProductRequest(id = productId)
+        )
+        if (response.success) {
+            val product = dao.getProductById(productId)
+            if (product != null) {
+                dao.deleteCartItemByProductId(productId)
+                dao.deleteProduct(product)
+            }
+            return true
+        } else {
+            throw Exception(response.message ?: "Server rejected product deletion.")
         }
     }
 
