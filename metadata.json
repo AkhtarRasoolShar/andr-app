@@ -1,6 +1,6 @@
 {
-  "name": "CraftMarket",
-  "description": "An elegant e-commerce marketplace for authentic handmade goods with secure simulated payment integrations and real-time inventory management.",
+  "name": "Snow-White",
+  "description": "The official Snow-White Pakistan app. Premium dry cleaning, laundry/washing, carpet restoration, and high-end fabric care services at your fingertips.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

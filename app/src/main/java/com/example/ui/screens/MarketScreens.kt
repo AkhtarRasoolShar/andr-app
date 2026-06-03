@@ -53,14 +53,14 @@ import com.example.ui.theme.*
 
 @Composable
 fun ProceduralCraftImage(category: String, subkey: String, modifier: Modifier = Modifier) {
-    val clayCol = Color(0xFFC77A58)
-    val sandCol = Color(0xFFDCC19D)
-    val darkMoss = Color(0xFF435A4B)
-    val indigoCol = Color(0xFF324D63)
-    val goldenGold = Color(0xFFD4AF37)
-    val silverMetal = Color(0xFFBEC2C5)
-    val woodOak = Color(0xFF865D36)
-    val woodChestnut = Color(0xFF5D4037)
+    val goldCol = Color(0xFFC5A059)
+    val darkGold = Color(0xFF9E7E44)
+    val blushCol = Color(0xFFE5B5B0)
+    val crimsonCol = Color(0xFF8B1E3F)
+    val charcoal = Color(0xFF2C2421)
+    val glassAqua = Color(0xFF8EBEB5)
+    val cloudBlue = Color(0xFF769ECB)
+    val whitePearl = Color(0xFFFAFAF5)
 
     Box(
         modifier = modifier
@@ -70,10 +70,11 @@ fun ProceduralCraftImage(category: String, subkey: String, modifier: Modifier = 
             .background(
                 brush = Brush.radialGradient(
                     colors = when (category.lowercase()) {
-                        "ceramics" -> listOf(Color(0xFFFDFBF7), Color(0xFFEFE6DC))
-                        "textiles" -> listOf(Color(0xFFE8ECEF), Color(0xFFD2DCE5))
-                        "jewelry" -> listOf(Color(0xFFFDFBF4), Color(0xFFF3ECE1))
-                        "woodwork" -> listOf(Color(0xFFFAF2ED), Color(0xFFE7D8CF))
+                        "cosmetics" -> listOf(Color(0xFFFFF0F1), Color(0xFFF5DCDC))
+                        "fragrances" -> listOf(Color(0xFFFFFDF2), Color(0xFFEADFCA))
+                        "personal care" -> listOf(Color(0xFFF1FBF8), Color(0xFFCEECE3))
+                        "apparel" -> listOf(Color(0xFFFCFAF5), Color(0xFFECE4D9))
+                        "dry cleaning" -> listOf(Color(0xFFF4F9FC), Color(0xFFD4E6F1))
                         else -> listOf(Color.White, Color.LightGray)
                     }
                 )
@@ -87,173 +88,241 @@ fun ProceduralCraftImage(category: String, subkey: String, modifier: Modifier = 
             val cy = canvasHeight / 2
 
             when (category.lowercase()) {
-                "ceramics" -> {
-                    if (subkey.contains("cups")) {
-                        // Two cute espresso cups side-by-side
-                        // Cup 1
-                        drawArc(
-                            color = clayCol,
-                            startAngle = 0f,
-                            sweepAngle = 180f,
-                            useCenter = true,
-                            size = Size(cx, cy),
-                            topLeft = Offset(cx * 0.15f, cy * 0.6f)
-                        )
-                        drawCircle(color = sandCol, radius = cx * 0.18f, center = Offset(cx * 0.5f, cy * 0.7f))
-                        // Cup 2
-                        drawArc(
-                            color = darkMoss,
-                            startAngle = 0f,
-                            sweepAngle = 180f,
-                            useCenter = true,
-                            size = Size(cx, cy),
-                            topLeft = Offset(cx * 0.85f, cy * 0.7f)
-                        )
-                    } else {
-                        // Ceramic pottery water/flower vase
-                        // Base round curve
-                        drawCircle(color = clayCol, radius = cx * 0.35f, center = Offset(cx, cy * 1.1f))
-                        // Speckled look
-                        drawCircle(color = sandCol, radius = 2.5f, center = Offset(cx - 10f, cy * 1.0f))
-                        drawCircle(color = sandCol, radius = 3f, center = Offset(cx + 12f, cy * 1.2f))
-                        drawCircle(color = Color(0xFF3E2723), radius = 2f, center = Offset(cx - 5f, cy * 1.25f))
-                        // Vase neck
-                        val neckWidth = cx * 0.3f
+                "cosmetics" -> {
+                    if (subkey.contains("palette")) {
+                        // Sleek open makeup palette compact
+                        // Palette casing
                         drawRoundRect(
-                            color = sandCol,
-                            topLeft = Offset(cx - neckWidth / 2, cy * 0.45f),
-                            size = Size(neckWidth, cy * 0.5f),
-                            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
-                        )
-                        // Vase collar opening
-                        drawOval(
-                            color = clayCol,
-                            topLeft = Offset(cx - neckWidth * 0.6f, cy * 0.38f),
-                            size = Size(neckWidth * 1.2f, 10.dp.toPx())
-                        )
-                    }
-                }
-                "textiles" -> {
-                    if (subkey.contains("apron")) {
-                        // Cozy crossback linen apron sketch
-                        val path = Path().apply {
-                            moveTo(cx * 0.6f, cy * 0.4f)
-                            lineTo(cx * 1.4f, cy * 0.4f)
-                            lineTo(cx * 1.5f, cy * 1.1f)
-                            lineTo(cx * 1.4f, cy * 1.6f)
-                            lineTo(cx * 0.6f, cy * 1.6f)
-                            lineTo(cx * 0.5f, cy * 1.1f)
-                            close()
-                        }
-                        drawPath(path = path, color = darkMoss)
-                        // Canvas front pocket lines
-                        drawRoundRect(
-                            color = sandCol,
-                            topLeft = Offset(cx * 0.75f, cy * 1.0f),
-                            size = Size(cx * 0.5f, cy * 0.4f)
-                        )
-                    } else {
-                        // Organic geometric-weaved blanket representation
-                        drawRoundRect(
-                            color = indigoCol,
-                            topLeft = Offset(cx * 0.2f, cy * 0.3f),
-                            size = Size(cx * 1.6f, cy * 1.3f),
-                            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
-                        )
-                        // Decorative horizontal weave patterns
-                        for (yOffset in listOf(-25f, -10f, 5f, 20f, 35f)) {
-                            drawLine(
-                                color = sandCol,
-                                start = Offset(cx * 0.3f, cy + yOffset),
-                                end = Offset(cx * 1.5f, cy + yOffset),
-                                strokeWidth = 3f,
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 8f), 0f)
-                            )
-                        }
-                        // Fringe tassels at sides
-                        for (x in stride(cx * 0.25f, cx * 1.55f, 15f)) {
-                            drawLine(
-                                color = Color.White,
-                                start = Offset(x, cy * 0.3f),
-                                end = Offset(x, cy * 0.3f - 12f),
-                                strokeWidth = 2.5f
-                            )
-                            drawLine(
-                                color = Color.White,
-                                start = Offset(x, cy * 1.6f),
-                                end = Offset(x, cy * 1.6f + 12f),
-                                strokeWidth = 2.5f
-                            )
-                        }
-                    }
-                }
-                "jewelry" -> {
-                    if (subkey.contains("earrings")) {
-                        // Pair of hand-threaded beaded dreamer earrings
-                        // Left earring ring & beads
-                        drawCircle(color = goldenGold, radius = cx * 0.25f, center = Offset(cx * 0.6f, cy), style = Stroke(width = 3f))
-                        for (angle in 0..360 step 45) {
-                            val rad = Math.toRadians(angle.toDouble())
-                            val bx = cx * 0.6f + (cx * 0.25f) * Math.cos(rad).toFloat()
-                            val by = cy + (cx * 0.25f) * Math.sin(rad).toFloat()
-                            drawCircle(color = clayCol, radius = 4f, center = Offset(bx, by))
-                        }
-                        // Right earring ring & beads
-                        drawCircle(color = goldenGold, radius = cx * 0.25f, center = Offset(cx * 1.4f, cy), style = Stroke(width = 3f))
-                        for (angle in 0..360 step 45) {
-                            val rad = Math.toRadians(angle.toDouble())
-                            val bx = cx * 1.4f + (cx * 0.25f) * Math.cos(rad).toFloat()
-                            val by = cy + (cx * 0.25f) * Math.sin(rad).toFloat()
-                            drawCircle(color = Color(0xFFD48A54), radius = 4f, center = Offset(bx, by))
-                        }
-                    } else {
-                        // Cast floral silver ring
-                        drawCircle(color = silverMetal, radius = cx * 0.35f, center = Offset(cx, cy * 1.1f), style = Stroke(width = 8f))
-                        // Floral wildflower crown
-                        drawCircle(color = goldenGold, radius = cx * 0.12f, center = Offset(cx, cy * 0.65f))
-                        for (i in 0..5) {
-                            val rad = Math.toRadians((i * 60).toDouble())
-                            val px = cx + (cx * 0.16f) * Math.cos(rad).toFloat()
-                            val py = cy * 0.65f + (cx * 0.16f) * Math.sin(rad).toFloat()
-                            drawCircle(color = Color.White, radius = 5f, center = Offset(px, py))
-                        }
-                    }
-                }
-                "woodwork" -> {
-                    if (subkey.contains("box")) {
-                        // Aromatic red cedar carved storage chest
-                        drawRoundRect(
-                            color = woodOak,
-                            topLeft = Offset(cx * 0.3f, cy * 0.5f),
-                            size = Size(cx * 1.4f, cy * 1.0f),
-                            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
-                        )
-                        // Inlaid details / latch
-                        drawRect(
-                            color = woodChestnut,
-                            topLeft = Offset(cx * 0.35f, cy * 0.55f),
-                            size = Size(cx * 1.3f, 8f)
-                        )
-                        drawCircle(color = goldenGold, radius = cx * 0.1f, center = Offset(cx, cy * 0.95f))
-                    } else {
-                        // End-grain walnut cutting board
-                        drawRoundRect(
-                            color = woodOak,
-                            topLeft = Offset(cx * 0.15f, cy * 0.45f),
-                            size = Size(cx * 1.7f, cy * 1.0f),
+                            color = charcoal,
+                            topLeft = Offset(cx * 0.3f, cy * 0.4f),
+                            size = Size(cx * 1.4f, cy * 1.2f),
                             cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
                         )
-                        // Woodgrain rings
+                        // Inner mirror
+                        drawRect(
+                            color = Color(0xFFE3F2FD),
+                            topLeft = Offset(cx * 0.45f, cy * 0.5f),
+                            size = Size(cx * 1.1f, cy * 0.4f)
+                        )
+                        // Rounded make-up color pans (crimson, gold, blush)
+                        drawCircle(color = crimsonCol, radius = cx * 0.16f, center = Offset(cx * 0.6f, cy * 1.25f))
+                        drawCircle(color = goldCol, radius = cx * 0.16f, center = Offset(cx, cy * 1.25f))
+                        drawCircle(color = blushCol, radius = cx * 0.16f, center = Offset(cx * 1.4f, cy * 1.25f))
+                    } else {
+                        // Elegant upright matte lipstick
+                        // Lipstick case base
                         drawRoundRect(
-                            color = woodChestnut,
-                            topLeft = Offset(cx * 0.25f, cy * 0.55f),
-                            size = Size(cx * 1.5f, cy * 0.8f),
+                            color = charcoal,
+                            topLeft = Offset(cx * 0.75f, cy * 0.9f),
+                            size = Size(cx * 0.5f, cy * 0.7f),
+                            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                        )
+                        // Gold casing ring band
+                        drawRect(
+                            color = goldCol,
+                            topLeft = Offset(cx * 0.75f, cy * 0.82f),
+                            size = Size(cx * 0.5f, cy * 0.15f)
+                        )
+                        // Inner gold tube metal extension
+                        drawRoundRect(
+                            color = darkGold,
+                            topLeft = Offset(cx * 0.83f, cy * 0.55f),
+                            size = Size(cx * 0.34f, cy * 0.3f)
+                        )
+                        // Slashed cylinder Crimson paste lipstick stick
+                        val lipstickPath = Path().apply {
+                            moveTo(cx * 0.83f, cy * 0.6f)
+                            lineTo(cx * 0.83f, cy * 0.25f)
+                            lineTo(cx * 1.17f, cy * 0.38f)
+                            lineTo(cx * 1.17f, cy * 0.6f)
+                            close()
+                        }
+                        drawPath(path = lipstickPath, color = crimsonCol)
+                    }
+                }
+                "fragrances" -> {
+                    // Luxurious French Fragrance Cyrstal Atomizer
+                    // Bottle base shape (curvy glass bottle)
+                    val bottlePath = Path().apply {
+                        moveTo(cx * 0.6f, cy * 0.7f)
+                        cubicTo(cx * 0.4f, cy * 0.8f, cx * 0.4f, cy * 1.5f, cx * 0.6f, cy * 1.6f)
+                        lineTo(cx * 1.4f, cy * 1.6f)
+                        cubicTo(cx * 1.6f, cy * 1.5f, cx * 1.6f, cy * 0.8f, cx * 1.4f, cy * 0.7f)
+                        close()
+                    }
+                    drawPath(path = bottlePath, color = whitePearl)
+                    
+                    // Golden perfume liquid inside (half full)
+                    val liquidPath = Path().apply {
+                        moveTo(cx * 0.65f, cy * 1.1f)
+                        lineTo(cx * 0.65f, cy * 1.55f)
+                        lineTo(cx * 1.35f, cy * 1.55f)
+                        lineTo(cx * 1.35f, cy * 1.1f)
+                        close()
+                    }
+                    drawPath(path = liquidPath, color = goldCol.copy(alpha = 0.55f))
+                    
+                    // Glass bottle details
+                    drawPath(path = bottlePath, color = goldCol, style = Stroke(width = 3f))
+                    
+                    // Neck band
+                    drawRect(
+                        color = goldCol,
+                        topLeft = Offset(cx * 0.85f, cy * 0.55f),
+                        size = Size(cx * 0.3f, cy * 0.15f)
+                    )
+                    // Spray cap assembly on top
+                    drawRoundRect(
+                        color = darkGold,
+                        topLeft = Offset(cx * 0.9f, cy * 0.35f),
+                        size = Size(cx * 0.2f, cy * 0.2f),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
+                }
+                "personal care" -> {
+                    if (subkey.contains("serum")) {
+                        // Skincare serum glass medicine dropper
+                        // Bottle
+                        drawRoundRect(
+                            color = Color(0x995D4037), // Amber brown glass
+                            topLeft = Offset(cx * 0.7f, cy * 0.6f),
+                            size = Size(cx * 0.6f, cy * 1.0f),
                             cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
                             style = Stroke(width = 3f)
                         )
-                        // Grip handle hole
-                        drawCircle(color = CreamChiffon, radius = 8f, center = Offset(cx * 1.6f, cy * 0.95f))
+                        // Liquid level
+                        drawRoundRect(
+                            color = glassAqua.copy(alpha = 0.7f),
+                            topLeft = Offset(cx * 0.72f, cy * 0.9f),
+                            size = Size(cx * 0.56f, cy * 0.66f),
+                            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                        )
+                        // Collar white plastic screw cap
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = Offset(cx * 0.8f, cy * 0.45f),
+                            size = Size(cx * 0.4f, cy * 0.18f),
+                            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                        )
+                        // Rubber squeeze bulb topper
+                        drawArc(
+                            color = Color.Gray,
+                            startAngle = 180f,
+                            sweepAngle = 180f,
+                            useCenter = true,
+                            size = Size(cx * 0.3f, cy * 0.3f),
+                            topLeft = Offset(cx * 0.85f, cy * 0.18f)
+                        )
+                    } else {
+                        // Wide luxury skin moisturizing butter tub
+                        // Base container
+                        drawRoundRect(
+                            color = glassAqua,
+                            topLeft = Offset(cx * 0.4f, cy * 0.8f),
+                            size = Size(cx * 1.2f, cy * 0.7f),
+                            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
+                        )
+                        // Shiny lid topper
+                        drawRoundRect(
+                            color = goldCol,
+                            topLeft = Offset(cx * 0.35f, cy * 0.62f),
+                            size = Size(cx * 1.3f, cy * 0.22f),
+                            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                        )
+                        // Center brand rose circle
+                        drawCircle(color = blushCol, radius = cx * 0.15f, center = Offset(cx, cy * 1.15f))
                     }
+                }
+                "apparel" -> {
+                    if (subkey.contains("camisole")) {
+                        // Intimate smooth silk camisole top
+                        val path = Path().apply {
+                            moveTo(cx * 0.6f, cy * 0.7f)
+                            lineTo(cx * 0.7f, cy * 0.5f) // straps start
+                            lineTo(cx * 0.72f, cy * 0.5f)
+                            lineTo(cx * 0.8f, cy * 0.7f) // strap left end
+                            lineTo(cx * 1.2f, cy * 0.7f) // strap right start
+                            lineTo(cx * 1.28f, cy * 0.5f)
+                            lineTo(cx * 1.3f, cy * 0.5f)
+                            lineTo(cx * 1.4f, cy * 0.7f) // bodice top
+                            lineTo(cx * 1.45f, cy * 1.5f) // bottom hem right
+                            lineTo(cx * 0.55f, cy * 1.5f) // bottom hem left
+                            close()
+                        }
+                        drawPath(path = path, color = blushCol)
+                        // Lace highlights
+                        drawCircle(color = whitePearl, radius = 5f, center = Offset(cx, cy * 0.8f))
+                        drawCircle(color = whitePearl, radius = 5f, center = Offset(cx * 0.85f, cy * 0.75f))
+                        drawCircle(color = whitePearl, radius = 5f, center = Offset(cx * 1.15f, cy * 0.75f))
+                    } else {
+                        // Premium folded Satin PJ button-up suit representation
+                        drawRoundRect(
+                            color = Color(0xFFDCD6D1),
+                            topLeft = Offset(cx * 0.35f, cy * 0.45f),
+                            size = Size(cx * 1.3f, cy * 1.1f),
+                            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
+                        )
+                        // Contrasting piping borders & collar triangles
+                        val collarLeft = Path().apply {
+                            moveTo(cx * 0.7f, cy * 0.45f)
+                            lineTo(cx * 0.95f, cy * 0.85f)
+                            lineTo(cx * 0.5f, cy * 0.8f)
+                            close()
+                        }
+                        drawPath(path = collarLeft, color = charcoal)
+                        
+                        val collarRight = Path().apply {
+                            moveTo(cx * 1.3f, cy * 0.45f)
+                            lineTo(cx * 1.05f, cy * 0.85f)
+                            lineTo(cx * 1.5f, cy * 0.8f)
+                            close()
+                        }
+                        drawPath(path = collarRight, color = charcoal)
+
+                        // Pocket
+                        drawRoundRect(
+                            color = blushCol,
+                            topLeft = Offset(cx * 0.42f, cy * 1.05f),
+                            size = Size(cx * 0.35f, cy * 0.4f),
+                            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                        )
+                    }
+                }
+                "dry cleaning" -> {
+                    // Express premium Dry-Clean clothing ticket coupon voucher
+                    // Background coupon
+                    drawRoundRect(
+                        color = cloudBlue,
+                        topLeft = Offset(cx * 0.2f, cy * 0.35f),
+                        size = Size(cx * 1.6f, cy * 1.2f),
+                        cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
+                    )
+                    // Dashed lines detailing a secure tear coupon
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(cx * 0.65f, cy * 0.35f),
+                        end = Offset(cx * 0.65f, cy * 1.55f),
+                        strokeWidth = 3f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                    )
+                    // Minimalist clothing metal laundry hanger vector illustration
+                    val hangerPath = Path().apply {
+                        moveTo(cx * 1.2f, cy * 0.85f) // bottom left corner
+                        lineTo(cx * 1.5f, cy * 0.85f) // bottom right corner
+                        lineTo(cx * 1.35f, cy * 0.62f) // center high apex
+                        close()
+                    }
+                    drawPath(path = hangerPath, color = Color.White, style = Stroke(width = 3.5f))
+                    // Hanger upper hook curve
+                    drawArc(
+                        color = Color.White,
+                        startAngle = 0f,
+                        sweepAngle = 270f,
+                        useCenter = false,
+                        size = Size(cx * 0.16f, cy * 0.25f),
+                        topLeft = Offset(cx * 1.3f, cy * 0.4f),
+                        style = Stroke(width = 3.5f)
+                    )
                 }
                 else -> {
                     drawCircle(color = Color.Gray, radius = cx * 0.4f, center = Offset(cx, cy))
@@ -383,7 +452,7 @@ fun MainCatalogScreen(
         }
 
         // Category Selection Stepper/Scrollable chips
-        val categories = listOf("All", "Ceramics", "Textiles", "Jewelry", "Woodwork")
+        val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -402,11 +471,11 @@ fun MainCatalogScreen(
                     label = { 
                         Text(
                             text = when(cat) {
-                                "All" -> "✨ All"
-                                "Ceramics" -> "🏺 Ceramics"
-                                "Textiles" -> "🧵 Textiles"
-                                "Jewelry" -> "💍 Jewelry"
-                                "Woodwork" -> "🪓 Woodwork"
+                                "All" -> "✨ All Services"
+                                "Dry Cleaning" -> "👔 Dry Cleaning"
+                                "Laundry" -> "🧺 Laundry"
+                                "Carpet & Rugs" -> "🧹 Carpet & Rugs"
+                                "Specialized" -> "🧥 Specialized"
                                 else -> cat
                             },
                             fontSize = 13.sp,
@@ -868,13 +937,13 @@ fun CartScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "Artisan Coupon Codes",
+                                    text = "Snow-White Promotion Codes",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Use HANDMADE10 (10% off) or ARTISAN20 (20% off).",
+                                    text = "Use SNOW15 (15% off) or GLOW20 (20% off) for premium loyalty reductions.",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
@@ -1489,7 +1558,7 @@ fun AdminInventoryScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Artisan Portal",
+                            text = "Snow-White Portal",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                         )
@@ -1563,6 +1632,76 @@ fun AdminInventoryScreen(
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
+                val isDbConfigured by com.example.data.FirestoreService.isConfigured.collectAsState()
+                val dbStatusMsg by com.example.data.FirestoreService.firestoreStatusMessage.collectAsState()
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .testTag("firestore_status_card"),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDbConfigured) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        }
+                    ),
+                    border = BorderStroke(1.dp, if (isDbConfigured) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDbConfigured) Color(0xFF4CAF50) else Color(0xFFFF9800))
+                            )
+                            Text(
+                                text = if (isDbConfigured) "Real-Time Cloud Synchronization" else "Local Database Mode",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDbConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        Text(
+                            text = dbStatusMsg,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Firestore Transaction Schema:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+
+                        Text(
+                            text = "┌─ /products/{id}/stock - Lock-verified using atomic mutator\n" +
+                                   "└─ Multi-Device Race Prevention actively enabled",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            item {
                 Text(
                     text = "ARTISAN STOCK RECORDS (LIVE SYNCHRONIZED)",
                     style = MaterialTheme.typography.labelSmall,
@@ -1606,7 +1745,7 @@ fun AdminInventoryScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "Artisan: ${item.artisanName} | ${item.category}",
+                                    text = "Provider: ${item.artisanName} | ${item.category}",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
@@ -1799,7 +1938,7 @@ fun AddEditProductDialog(
     var stockStr by remember { mutableStateOf(product?.stock?.toString() ?: "") }
     var artisan by remember { mutableStateOf(product?.artisanName ?: "") }
     
-    val catList = listOf("Ceramics", "Textiles", "Jewelry", "Woodwork")
+    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
     var selectedCatIndex by remember { 
         mutableStateOf(catList.indexOfFirst { it.lowercase() == (product?.category?.lowercase() ?: "") }.coerceAtLeast(0)) 
     }
@@ -1822,7 +1961,7 @@ fun AddEditProductDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (product == null) "Add Artisan Listing" else "Modify Listing Details",
+                    text = if (product == null) "Add Service Listing" else "Modify Listing Details",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -1832,7 +1971,7 @@ fun AddEditProductDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Product Title") },
+                    label = { Text("Service Title") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("admin_val_title"),
@@ -1845,7 +1984,7 @@ fun AddEditProductDialog(
                 OutlinedTextField(
                     value = artisan,
                     onValueChange = { artisan = it },
-                    label = { Text("Artisan Maker Name") },
+                    label = { Text("Service Provider") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("admin_val_artisan"),

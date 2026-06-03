@@ -83,20 +83,22 @@ class MarketViewModel(
 
         val subtotal = itemsList.sumOf { it.product.price * it.cartItem.quantity }
         val discountRate = when (coupon.uppercase().trim()) {
-            "HANDMADE10" -> 0.10 // 10% Off
-            "ARTISAN20" -> 0.20 // 20% Off
+            "SNOW15" -> 0.15 // 15% Off
+            "GLOW20" -> 0.20 // 20% Off
+            "HANDMADE10" -> 0.10 // Backwards compatibility 10%
+            "ARTISAN20" -> 0.20 // Backwards compatibility 20%
             "FREESHIP" -> 0.00 // Handles free shipping below
             else -> 0.00
         }
 
         var discount = subtotal * discountRate
-        var shipping = if (subtotal > 0.0) 5.99 else 0.0
+        var shipping = if (subtotal > 0.0) 3.50 else 0.0 // Reduced shipping for local logistics
         
         if (coupon.uppercase().trim() == "FREESHIP" && subtotal > 0.0) {
             shipping = 0.0
         }
 
-        val tax = subtotal * 0.08 // 8% local craftsman tax
+        val tax = subtotal * 0.15 // 15% standard sales tax
         val finalTotal = (subtotal - discount + shipping + tax).coerceAtLeast(0.0)
 
         CartSummary(
@@ -122,6 +124,14 @@ class MarketViewModel(
             initialValue = emptyList()
         )
 
+    // Logged-in User Profile state
+    val loggedInUser: StateFlow<UserProfile?> = repository.loggedInUser
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
     // Payment Sandbox / Checkout states
     var isPaymentProcessing by mutableStateOf(false)
         private set
@@ -133,9 +143,78 @@ class MarketViewModel(
         private set
 
     init {
-        // Initialize Database with handcrafted items if empty
+        // Initialize Database with items if empty
         viewModelScope.launch {
             repository.ensureSeededData()
+        }
+    }
+
+    // Account Creation / Membership actions
+    fun createAccount(
+        fullName: String,
+        email: String,
+        phone: String,
+        city: String,
+        address: String,
+        passwordEntered: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.createAccount(
+                    UserProfile(
+                        email = email.trim(),
+                        fullName = fullName.trim(),
+                        phoneNumber = phone.trim(),
+                        city = city.trim(),
+                        deliveryAddress = address.trim(),
+                        membershipPoints = 150 // Welcome loyalty points bonus!
+                    ),
+                    passwordEntered
+                )
+                onResult(true, null)
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Unknown creation failure.")
+            }
+        }
+    }
+
+    fun login(email: String, passwordEntered: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val success = repository.login(email, passwordEntered)
+                onResult(success, if (success) null else "Invalid username or security combination.")
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Sign-in error.")
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            repository.logout()
+        }
+    }
+
+    fun toggleSavedPreference(productId: Int) {
+        viewModelScope.launch {
+            val user = loggedInUser.value ?: return@launch
+            val preferencesList = user.savedPreferences.split(",").filter { it.isNotBlank() }.toMutableList()
+            val prodIdStr = productId.toString()
+            if (preferencesList.contains(prodIdStr)) {
+                preferencesList.remove(prodIdStr)
+            } else {
+                preferencesList.add(prodIdStr)
+            }
+            val updatedString = preferencesList.joinToString(",")
+            repository.updateSavedPreferences(user.email, updatedString)
+        }
+    }
+
+    fun updateSavedPreferences(newPreferencesRaw: String) {
+        viewModelScope.launch {
+            val user = loggedInUser.value ?: return@launch
+            repository.updateSavedPreferences(user.email, newPreferencesRaw)
         }
     }
 
@@ -151,17 +230,21 @@ class MarketViewModel(
     // Coupon actions
     fun applyPromoCode(code: String) {
         val uppercaseCode = code.uppercase().trim()
-        if (uppercaseCode == "HANDMADE10") {
-            _couponCode.value = "HANDMADE10"
-            _couponSuccess.value = "10% Promo Code \"HANDMADE10\" applied!"
+        if (uppercaseCode == "SNOW15") {
+            _couponCode.value = "SNOW15"
+            _couponSuccess.value = "15% Welcome Promo Code \"SNOW15\" applied!"
             _couponError.value = null
-        } else if (uppercaseCode == "ARTISAN20") {
-            _couponCode.value = "ARTISAN20"
-            _couponSuccess.value = "20% Artisan Promo Code applied!"
+        } else if (uppercaseCode == "GLOW20") {
+            _couponCode.value = "GLOW20"
+            _couponSuccess.value = "20% Glow VIP Promo Code applied!"
             _couponError.value = null
         } else if (uppercaseCode == "FREESHIP") {
             _couponCode.value = "FREESHIP"
             _couponSuccess.value = "Free Shipping Promo Code applied!"
+            _couponError.value = null
+        } else if (uppercaseCode == "HANDMADE10" || uppercaseCode == "ARTISAN20") {
+            _couponCode.value = uppercaseCode
+            _couponSuccess.value = "Promo Code \"$uppercaseCode\" applied successfully!"
             _couponError.value = null
         } else {
             _couponError.value = "Invalid Promo Code."
@@ -194,7 +277,7 @@ class MarketViewModel(
         }
     }
 
-    // Admin Custom Actions on Products
+    // Admin Custom Actions on Products (For inventory management / stock checks)
     fun addNewProduct(
         title: String,
         description: String,
@@ -204,13 +287,13 @@ class MarketViewModel(
         artisanName: String
     ) {
         viewModelScope.launch {
-            // Select icon code based on category
             val imageRef = when (category.lowercase()) {
-                "ceramics" -> "ceramics"
-                "textiles" -> "textiles"
-                "jewelry" -> "jewelry"
-                "woodwork" -> "woodwork"
-                else -> "ceramics"
+                "cosmetics" -> "cosmetics_lipstick"
+                "fragrances" -> "fragrances_oud"
+                "personal care" -> "personal_serum"
+                "apparel" -> "apparel_pj"
+                "dry cleaning" -> "dry_clean_voucher"
+                else -> "cosmetics_lipstick"
             }
             val newProd = Product(
                 title = title,
@@ -238,7 +321,7 @@ class MarketViewModel(
         }
     }
 
-    // Checkout / Simulated Payment Gateway containing real Luhn's check verification and secure processing loading indicator.
+    // Checkout / Simulated Payment Gateway
     fun checkout(
         cardNumber: String,
         cardHolder: String,
@@ -252,7 +335,7 @@ class MarketViewModel(
             return
         }
 
-        // Apply basic check digits verification logic for simulated sandbox card verification
+        // Apply basic check digits verification logic (Luhn check)
         val isCardValid = validateCardLuhn(cardNumber)
         if (!isCardValid) {
             paymentResultError = "Payment failed: Invalid Credit Card number check (Luhn Algorithm mismatch)."
@@ -264,18 +347,16 @@ class MarketViewModel(
             paymentResultError = null
             paymentResultSuccess = null
             
-            // Simulate bank gateway latency to depict processing & real-time verification sequence
+            // Simulate bank gateway latency to depict processing & verification sequence
             delay(2200)
 
             try {
-                // Set the payment card last four characters
                 val cardLast4 = cardNumber.takeLast(4)
                 val order = repository.checkOutCart(
                     cardLast4 = "Visa *${cardLast4}",
                     shippingAddress = shippingAddress
                 )
                 paymentResultSuccess = order
-                // Reset cart configurations
                 clearPromoCode()
             } catch (e: Exception) {
                 paymentResultError = e.message ?: "Transaction failed. Please try again."
@@ -290,9 +371,8 @@ class MarketViewModel(
         paymentResultError = null
     }
 
-    // Simple helper checking card number correctness via Luhn's formula
+    // Luhn card logic
     internal fun validateCardLuhn(number: String): Boolean {
-        // Strip any spaces or non-digit signs
         val cleaned = number.replace(Regex("\\s+"), "")
         if (cleaned.length < 12 || cleaned.any { !it.isDigit() }) return false
         

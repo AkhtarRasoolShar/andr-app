@@ -9,9 +9,9 @@ data class Product(
     val title: String,
     val description: String,
     val price: Double,
-    val category: String, // e.g., "Ceramics", "Textiles", "Jewelry", "Woodwork"
+    val category: String, // e.g., "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized"
     val stock: Int,       // Real-time inventory
-    val artisanName: String,
+    val artisanName: String, // Brand or Service provider
     val imageUrl: String,  // Key for local icon or visual illustration reference
     val rating: Double = 4.8
 )
@@ -27,11 +27,24 @@ data class CartItem(
 data class Order(
     @PrimaryKey val id: String, // e.g., "ORD-5489"
     val timestamp: Long,
-    val itemsSummary: String, // e.g., "Ceramic Vase x1, Wool Rug x1"
+    val itemsSummary: String, // e.g., "Matte Lipstick x1, Oud Parfum x1"
     val totalAmount: Double,
     val status: String,       // "Processing", "Shipped", "Delivered"
     val paymentCardLast4: String,
     val shippingAddress: String
+)
+
+@Entity(tableName = "user_profiles")
+data class UserProfile(
+    @PrimaryKey val email: String,
+    val fullName: String,
+    val phoneNumber: String,
+    val city: String,
+    val deliveryAddress: String,
+    val membershipPoints: Int = 100,
+    val isLoggedIn: Boolean = false,
+    val savedPreferences: String = "", // Comma-separated list of product IDs or category names
+    val purchaseHistory: String = ""   // Comma-separated record of completed transactions/orders
 )
 
 @Dao
@@ -80,4 +93,20 @@ interface MarketplaceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrder(order: Order)
+
+    // User Profiles
+    @Query("SELECT * FROM user_profiles WHERE isLoggedIn = 1 LIMIT 1")
+    fun getLoggedInUserFlow(): Flow<UserProfile?>
+
+    @Query("SELECT * FROM user_profiles WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserProfile?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProfile(profile: UserProfile)
+
+    @Query("UPDATE user_profiles SET isLoggedIn = 0")
+    suspend fun logoutAllUsers()
+
+    @Query("UPDATE user_profiles SET isLoggedIn = 1 WHERE email = :email")
+    suspend fun loginUser(email: String)
 }

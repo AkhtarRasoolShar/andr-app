@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
@@ -30,6 +32,7 @@ import com.example.ui.screens.AdminInventoryScreen
 import com.example.ui.screens.CartScreen
 import com.example.ui.screens.MainCatalogScreen
 import com.example.ui.screens.OrdersScreen
+import com.example.ui.screens.ProfileScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.MarketViewModel
 import com.example.viewmodel.MarketViewModelFactory
@@ -40,6 +43,8 @@ class MainActivity : ComponentActivity() {
         
         // Setup local offline database and repository references
         val database = AppDatabase.getDatabase(applicationContext)
+        com.example.data.FirestoreService.initialize(applicationContext, database.marketplaceDao())
+        com.example.data.FirebaseAuthService.initialize(applicationContext)
         val repository = InventoryRepository(database.marketplaceDao())
         
         // Setup state viewModel using a custom factory
@@ -71,7 +76,7 @@ class MainActivity : ComponentActivity() {
                                 icon = {
                                     Icon(
                                         imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                                        contentDescription = "Explore Crafts Catalog"
+                                        contentDescription = "Explore Snowhite Boutique Catalog"
                                     )
                                 },
                                 modifier = Modifier.testTag("tab_shop")
@@ -80,27 +85,14 @@ class MainActivity : ComponentActivity() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                label = { Text("Cart") },
+                                label = { Text("Bag") },
                                 icon = {
                                     Icon(
                                         imageVector = if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
-                                        contentDescription = "Secured Invoice Bag"
+                                        contentDescription = "Shopping Bag and Checkout"
                                     )
                                 },
                                 modifier = Modifier.testTag("tab_cart")
-                            )
-
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                label = { Text("Artisan") },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
-                                        contentDescription = "Artisan Cabin inventory"
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_admin")
                             )
 
                             NavigationBarItem(
@@ -110,10 +102,36 @@ class MainActivity : ComponentActivity() {
                                 icon = {
                                     Icon(
                                         imageVector = if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt,
-                                        contentDescription = "Receipt ledger"
+                                        contentDescription = "Order tracking history"
                                     )
                                 },
                                 modifier = Modifier.testTag("tab_orders")
+                            )
+
+                            NavigationBarItem(
+                                selected = selectedTab == 4,
+                                onClick = { selectedTab = 4 },
+                                label = { Text("Account") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
+                                        contentDescription = "User loyalty account and settings"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_profile")
+                            )
+
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                label = { Text("Portal") },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
+                                        contentDescription = "Merchant inventory controls"
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_admin")
                             )
                         }
                     }
@@ -130,6 +148,10 @@ class MainActivity : ComponentActivity() {
                             )
                             2 -> AdminInventoryScreen(viewModel = viewModel)
                             3 -> OrdersScreen(
+                                viewModel = viewModel,
+                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
+                            )
+                            4 -> ProfileScreen(
                                 viewModel = viewModel,
                                 onNavigateToTab = { targetTab -> selectedTab = targetTab }
                             )
