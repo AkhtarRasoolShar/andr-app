@@ -535,6 +535,9 @@ private fun stride(start: Float, end: Float, step: Float): List<Float> {
 
 @Composable
 fun WishlistScreen(viewModel: MarketViewModel, onClose: () -> Unit) {
+    LaunchedEffect(Unit) {
+        viewModel.loadWishlistFromApi()
+    }
     val wishlistIds by viewModel.wishlistIds.collectAsState()
     val products by viewModel.productsState.collectAsState()
     val wishlistProducts = products.filter { wishlistIds.contains(it.id) }
@@ -853,6 +856,25 @@ fun MainCatalogScreen(
                         selected = isSelected,
                         borderColor = MaterialTheme.colorScheme.outline
                     )
+                )
+            }
+        }
+
+        // Live Promo Banner
+        if (!viewModel.appBannerUrl.isNullOrEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                coil.compose.AsyncImage(
+                    model = viewModel.appBannerUrl,
+                    contentDescription = "Promotional Banner",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
             }
         }
@@ -1281,6 +1303,8 @@ fun CartScreen(
     }
 
     // Textfields inputs for credit checkout
+    var fullNameStr by remember { mutableStateOf("") }
+    var phoneStr by remember { mutableStateOf("") }
     var cardNum by remember { mutableStateOf("") }
     var cardHolder by remember { mutableStateOf("") }
     var cardExpiry by remember { mutableStateOf("") }
@@ -1369,16 +1393,16 @@ fun CartScreen(
                 }
             }
         } else {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Spacer(modifier = Modifier.height(12.dp))
                 // Cart Items Section
                 if (summary.items.isNotEmpty()) {
-                    item {
                         Text(
                             text = "ORDER ITEMS (${summary.items.sumOf { it.cartItem.quantity }})",
                             style = MaterialTheme.typography.titleSmall,
@@ -1386,9 +1410,8 @@ fun CartScreen(
                             color = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                    }
 
-                    items(summary.items, key = { it.cartItem.id }) { uiItem ->
+                    summary.items.forEach { uiItem ->
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { dismissValue ->
                                 if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
@@ -1441,202 +1464,143 @@ fun CartScreen(
                     }
 
                     // Promo Code Section
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Snowwhite Promotion Codes",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Use SNOW15 (15% off) or GLOW20 (20% off) for premium loyalty reductions.",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedTextField(
-                                        value = typedPromo,
-                                        onValueChange = { typedPromo = it },
-                                        placeholder = { Text("e.g., HANDMADE10", fontSize = 13.sp) },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(52.dp)
-                                            .testTag("promo_code_input"),
-                                        shape = RoundedCornerShape(8.dp),
-                                        singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Button(
-                                        onClick = { 
-                                            viewModel.applyPromoCode(typedPromo)
-                                            typedPromo = ""
-                                        },
-                                        modifier = Modifier
-                                            .height(48.dp)
-                                            .testTag("apply_promo_button"),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text("Apply")
-                                    }
-                                }
-
-                                if (couponSuccess != null) {
-                                    Text(
-                                        text = couponSuccess ?: "",
-                                        color = Color(0xFF388E3C),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(top = 6.dp)
-                                    )
-                                } else if (couponError != null) {
-                                    Text(
-                                        text = couponError ?: "",
-                                        color = Color(0xFFD32F2F),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(top = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Promo Code Input
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Snowwhite Promotion Codes",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Use SNOW15 (15% off) or GLOW20 (20% off) for premium loyalty reductions.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedTextField(
                                     value = typedPromo,
-                                    onValueChange = { typedPromo = it.uppercase() },
-                                    label = { Text("Enter Promo Code") },
-                                    modifier = Modifier.weight(1f).height(60.dp),
+                                    onValueChange = { typedPromo = it },
+                                    placeholder = { Text("e.g., HANDMADE10", fontSize = 13.sp) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .testTag("promo_code_input"),
+                                    shape = RoundedCornerShape(8.dp),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(12.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
                                     )
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(
-                                    onClick = { viewModel.applyPromoCode(typedPromo) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.height(56.dp)
+                                    onClick = { 
+                                        viewModel.applyPromoCode(typedPromo)
+                                        typedPromo = ""
+                                    },
+                                    modifier = Modifier
+                                        .height(48.dp)
+                                        .testTag("apply_promo_button"),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("Apply", fontWeight = FontWeight.Bold)
+                                    Text("Apply")
                                 }
                             }
+
                             if (couponSuccess != null) {
                                 Text(
-                                    text = couponSuccess!!,
+                                    text = couponSuccess ?: "",
                                     color = Color(0xFF388E3C),
                                     fontSize = 12.sp,
-                                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp, end = 16.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 6.dp)
                                 )
-                            }
-                            if (couponError != null) {
+                            } else if (couponError != null) {
                                 Text(
-                                    text = couponError!!,
-                                    color = MaterialTheme.colorScheme.error,
+                                    text = couponError ?: "",
+                                    color = Color(0xFFD32F2F),
                                     fontSize = 12.sp,
-                                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp, end = 16.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 6.dp)
                                 )
                             }
                         }
                     }
 
                     // Financial Tallies receipt
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "RECEIPT SUMMARY",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "RECEIPT SUMMARY",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                                ReceiptEntry(label = "Items Subtotal", value = summary.subtotal)
-                                if (summary.appliedDiscount > 0.0) {
-                                    ReceiptEntry(
-                                        label = "Discount (${summary.promoCode})",
-                                        value = -summary.appliedDiscount,
-                                        valueColor = Color(0xFF388E3C)
-                                    )
-                                }
-                                ReceiptEntry(label = "Craftsman Tax (8%)", value = summary.tax)
+                            ReceiptEntry(label = "Items Subtotal", value = summary.subtotal)
+                            if (summary.appliedDiscount > 0.0) {
                                 ReceiptEntry(
-                                    label = "Secured Shipping",
-                                    value = summary.shippingFee,
-                                    overrideText = if (summary.shippingFee == 0.0) "FREE" else null
+                                    label = "Discount (${summary.promoCode})",
+                                    value = -summary.appliedDiscount,
+                                    valueColor = Color(0xFF388E3C)
                                 )
+                            }
+                            ReceiptEntry(label = "Craftsman Tax (8%)", value = summary.tax)
+                            ReceiptEntry(
+                                label = "Secured Shipping",
+                                value = summary.shippingFee,
+                                overrideText = if (summary.shippingFee == 0.0) "FREE" else null
+                            )
 
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Divider()
-                                Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Divider()
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "ORDER ESTIMATED TOTAL",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "$${String.format(Locale.US, "%.2f", summary.total)}",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "ORDER ESTIMATED TOTAL",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "$${String.format(Locale.US, "%.2f", summary.total)}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     }
 
                     // Secured Payment Form (Simulated Sandbox integration with live Card validation details)
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -2085,6 +2049,33 @@ fun CartScreen(
                                 }
 
                                 OutlinedTextField(
+                                    value = fullNameStr,
+                                    onValueChange = { fullNameStr = it },
+                                    label = { Text("Full Name") },
+                                    placeholder = { Text("e.g. John Doe") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("fullname_input"),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                OutlinedTextField(
+                                    value = phoneStr,
+                                    onValueChange = { phoneStr = it },
+                                    label = { Text("Phone Number") },
+                                    placeholder = { Text("e.g. +1 555-1234") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("phone_input"),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                OutlinedTextField(
                                     value = addressStr,
                                     onValueChange = { addressStr = it },
                                     label = { Text("Shipping Address") },
@@ -2111,16 +2102,17 @@ fun CartScreen(
 
                                 Button(
                                     onClick = {
-                                        viewModel.checkout(
-                                            paymentMethod = selectedPaymentMethod,
-                                            cardNumber = cardNum,
-                                            cardHolder = cardHolder,
-                                            expiryDate = cardExpiry,
-                                            cvv = cardCvv,
-                                            shippingAddress = addressStr,
-                                            pickupSchedule = if (selectedPickupDate.isNotEmpty() && selectedPickupSlot.isNotEmpty()) "$selectedPickupDate | $selectedPickupSlot" else "",
-                                            deliverySchedule = if (selectedDeliveryDate.isNotEmpty() && selectedDeliverySlot.isNotEmpty()) "$selectedDeliveryDate | $selectedDeliverySlot" else ""
-                                        )
+                                        if (addressStr.trim().isEmpty() || phoneStr.trim().isEmpty() || fullNameStr.trim().isEmpty()) {
+                                            android.widget.Toast.makeText(context, "Please fill in your shipping details", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            viewModel.checkout(
+                                                paymentMethod = selectedPaymentMethod,
+                                                shippingAddress = addressStr,
+                                                phone = phoneStr,
+                                                fullName = fullNameStr,
+                                                onSuccess = { onNavigateToTab(3) }
+                                            )
+                                        }
                                     },
                                     enabled = !isProcessing && summary.items.isNotEmpty(),
                                     modifier = Modifier
@@ -2156,7 +2148,6 @@ fun CartScreen(
                                 }
                             }
                         }
-                    }
                 }
             }
         }
@@ -3346,7 +3337,27 @@ fun OrdersScreen(
             }
         }
 
-        if (orders.isEmpty()) {
+        if (orders == null) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Please login to see your orders",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { onNavigateToTab(4) }) {
+                        Text("Go to Login")
+                    }
+                }
+            }
+        } else if (orders!!.isEmpty()) {
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -3394,7 +3405,7 @@ fun OrdersScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
-                items(orders, key = { it.id }) { ord ->
+                items(orders!!, key = { it.id }) { ord ->
                     OrderHistoryCard(order = ord)
                 }
             }
@@ -3435,12 +3446,35 @@ fun OrderHistoryCard(order: Order) {
                     )
                 }
 
-                Text(
-                    text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val (bgColor, textColor) = when (order.status.lowercase()) {
+                        "pending" -> Color(0xFFFFF59D) to Color(0xFFF57F17)
+                        "processing" -> Color(0xFFBBDEFB) to Color(0xFF1565C0)
+                        "shipped" -> Color(0xFFE1BEE7) to Color(0xFF6A1B9A)
+                        "delivered" -> Color(0xFFC8E6C9) to Color(0xFF2E7D32)
+                        "cancelled" -> Color(0xFFFFCDD2) to Color(0xFFC62828)
+                        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(bgColor, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = order.status.uppercase(),
+                            color = textColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

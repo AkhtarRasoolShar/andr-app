@@ -54,23 +54,28 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
     suspend fun fetchProductsFromRemote(): List<Product> {
         return try {
             val response = com.example.network.RetrofitClient.apiService.getProducts()
-            val mapped = response.map { res ->
-                Product(
-                    id = res.id,
-                    title = res.title,
-                    description = res.description ?: "Official high-end premium fabric care, laundry, washing, and carpet restoration services.",
-                    price = res.price,
-                    category = res.category ?: "Specialized",
-                    stock = res.stockLeft,
-                    artisanName = res.artisanName ?: "Snowwhite Pakistan",
-                    imageUrl = res.imageUrl,
-                    rating = res.rating ?: 4.8
-                )
+            if (response.isSuccessful && response.body()?.success == true) {
+                val mapped = response.body()?.products?.map { res ->
+                    Product(
+                        id = res.id,
+                        title = res.title,
+                        description = res.description ?: "Official high-end premium fabric care, laundry, washing, and carpet restoration services.",
+                        price = res.price,
+                        category = res.category ?: "Specialized",
+                        stock = res.stockLeft,
+                        artisanName = res.artisanName ?: "Snowwhite Pakistan",
+                        imageUrl = res.imageUrl,
+                        rating = res.rating ?: 4.8
+                    )
+                } ?: emptyList()
+                
+                if (mapped.isNotEmpty()) {
+                    mapped.forEach { dao.insertProduct(it) }
+                }
+                mapped
+            } else {
+                dao.getAllProductsFlow().first()
             }
-            if (mapped.isNotEmpty()) {
-                mapped.forEach { dao.insertProduct(it) }
-            }
-            mapped
         } catch (e: Exception) {
             val local = dao.getAllProductsFlow().first()
             if (local.isEmpty()) {
@@ -88,23 +93,19 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             throw Exception("Password must be at least 6 characters.")
         }
         
-        try {
-            com.example.network.RetrofitClient.apiService.register(
-                com.example.network.RegisterRequest(
-                    email = profile.email,
-                    fullName = profile.fullName,
-                    passwordEntered = passwordEntered,
-                    phoneNumber = profile.phoneNumber,
-                    city = profile.city,
-                    deliveryAddress = profile.deliveryAddress
-                )
+        val response = com.example.network.RetrofitClient.apiService.register(
+            com.example.network.RegisterRequest(
+                email = profile.email,
+                fullName = profile.fullName,
+                passwordEntered = passwordEntered,
+                phoneNumber = profile.phoneNumber,
+                city = profile.city,
+                deliveryAddress = profile.deliveryAddress
             )
-        } catch (e: Exception) {
-            // Local offline/fallback mode is supported
+        )
+        if (!response.success) {
+            throw Exception(response.message ?: "Registration failed.")
         }
-        
-        dao.logoutAllUsers()
-        dao.insertProfile(profile.copy(isLoggedIn = true, isAdmin = false, role = "customer"))
         return true
     }
 
@@ -113,53 +114,14 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             throw Exception("Password must be at least 6 characters.")
         }
 
-        var apiSuccess = false
-        var userRole = "customer"
-        var returnedUser: com.example.network.UserProfileResponse? = null
-
-        try {
-            val response = com.example.network.RetrofitClient.apiService.login(
-                com.example.network.LoginRequest(email = email.trim(), passwordEntered = passwordEntered)
-            )
-            if (response.success) {
-                apiSuccess = true
-                userRole = response.role ?: "customer"
-                returnedUser = response.user
-            } else {
-                throw Exception(response.message ?: "Invalid remote credentials from PHP backend.")
-            }
-        } catch (e: Exception) {
-            if (email.trim().lowercase() == "admin@snowwhite.com" && passwordEntered == "snowwhiteadmin") {
-                apiSuccess = true
-                userRole = "admin"
-                returnedUser = com.example.network.UserProfileResponse(
-                    email = "admin@snowwhite.com",
-                    fullName = "Snowwhite General Admin",
-                    phoneNumber = "0300-1234567",
-                    city = "Karachi",
-                    deliveryAddress = "Snowhite Head Office, Karachi, Pakistan",
-                    membershipPoints = 9999,
-                    role = "admin"
-                )
-            } else if (email.trim().isNotEmpty() && passwordEntered.length >= 6) {
-                val existing = dao.getUserByEmail(email.trim())
-                apiSuccess = true
-                userRole = if (existing?.isAdmin == true) "admin" else "customer"
-                returnedUser = com.example.network.UserProfileResponse(
-                    email = email.trim(),
-                    fullName = existing?.fullName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() },
-                    phoneNumber = existing?.phoneNumber ?: "0300-1112233",
-                    city = existing?.city ?: "Karachi",
-                    deliveryAddress = existing?.deliveryAddress ?: "Street 12, Area Alpha, Karachi",
-                    membershipPoints = existing?.membershipPoints ?: 100,
-                    role = userRole
-                )
-            } else {
-                throw e
-            }
-        }
-
-        if (apiSuccess && returnedUser != null) {
+        val response = com.example.network.RetrofitClient.apiService.login(
+            com.example.network.LoginRequest(email = email.trim(), passwordEntered = passwordEntered)
+        )
+        
+        if (response.success && response.user != null) {
+            val userRole = response.role ?: "customer"
+            val returnedUser = response.user
+            
             val isAdminRole = userRole.equals("admin", ignoreCase = true) || userRole.equals("super_admin", ignoreCase = true)
             val adminProfile = UserProfile(
                 email = returnedUser.email,
@@ -198,9 +160,9 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             }
 
             return true
+        } else {
+            throw Exception(response.message ?: "Invalid remote credentials from PHP backend.")
         }
-
-        return false
     }
 
     suspend fun logout() {
@@ -323,13 +285,17 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             userId = userId,
             totalAmount = finalTotal,
             paymentMethod = if (paymentMethod.equals("cod", ignoreCase = true)) "COD" else paymentMethod,
+            address = shippingAddress,
+            phone = "000000000",
             items = networkCartItems
         )
 
         val apiResponse = com.example.network.RetrofitClient.apiService.placeOrder(orderRequest)
-        if (!apiResponse.success) {
-            throw Exception(apiResponse.message ?: "Server rejected checkout transaction.")
+        val responseBody = apiResponse.body()
+        if (apiResponse.isSuccessful.not() || responseBody?.success != true) {
+            throw Exception(responseBody?.message ?: "Server rejected checkout transaction.")
         }
+        val orderIdFromApi = responseBody.orderId
 
         // Deduct/Reflect inventory changes locally for speed and consistency
         if (FirestoreService.isConfigured.value) {
@@ -344,7 +310,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             dao.updateProductStock(item.product.id, updatedStock)
         }
 
-        val orderId = apiResponse.orderId ?: "SNOW-${(10000..99999).random()}"
+        val orderId = responseBody?.orderId ?: "SNOW-${(10000..99999).random()}"
         val order = Order(
             id = orderId,
             timestamp = System.currentTimeMillis(),

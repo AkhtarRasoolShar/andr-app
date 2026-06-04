@@ -152,12 +152,43 @@ class MarketViewModel(
     )
 
     // Orders Flow
-    val ordersState: StateFlow<List<Order>> = repository.allOrders
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _ordersState = MutableStateFlow<List<Order>?>(null)
+    val ordersState: StateFlow<List<Order>?> = _ordersState.asStateFlow()
+
+    fun loadOrders() {
+        val sessionManager = com.example.data.SessionManager(getApplication())
+        val session = sessionManager.fetchSession()
+        if (session == null || session.userId <= 0) {
+            _ordersState.value = null // Means not logged in
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                val response = com.example.network.RetrofitClient.apiService.getMyOrders(session.userId)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    val networkOrders = response.body()?.orders ?: emptyList()
+                    val orderList = networkOrders.map {
+                        // Assuming string format from API is easily parseable, or just fake timestamp
+                        com.example.data.Order(
+                            id = it.id,
+                            timestamp = System.currentTimeMillis(), // placeholder or parse it.createdAt
+                            itemsSummary = "Purchased Items",
+                            totalAmount = it.totalAmount,
+                            status = it.status,
+                            paymentCardLast4 = "API",
+                            shippingAddress = "Delivery Address" // placeholder for local UI requirement
+                        )
+                    }
+                    _ordersState.value = orderList
+                } else {
+                    _ordersState.value = emptyList() // Fallback empty
+                }
+            } catch (e: Exception) {
+                _ordersState.value = emptyList()
+            }
+        }
+    }
 
     // Logged-in User Profile state
     val loggedInUser: StateFlow<UserProfile?> = repository.loggedInUser
@@ -185,7 +216,44 @@ class MarketViewModel(
         val current = wishlistIds.value
         val isWishlisted = current.contains(productId)
         viewModelScope.launch {
+            val sessionManager = com.example.data.SessionManager(getApplication())
+            val session = sessionManager.fetchSession()
+            if (session != null && session.userId > 0) {
+                try {
+                    val request = com.example.network.WishlistRequest(session.userId, productId)
+                    val response = com.example.network.RetrofitClient.apiService.toggleWishlist(request)
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        val isFavRes = response.body()?.isFavorite
+                        if (isFavRes != null) {
+                            repository.toggleWishlist(productId, isFavRes)
+                            return@launch
+                        }
+                    }
+                } catch (e: Exception) {
+                    // fallthrough
+                }
+            }
             repository.toggleWishlist(productId, !isWishlisted)
+        }
+    }
+
+    fun loadWishlistFromApi() {
+        val sessionManager = com.example.data.SessionManager(getApplication())
+        val session = sessionManager.fetchSession()
+        if (session != null && session.userId > 0) {
+            viewModelScope.launch {
+                try {
+                    val response = com.example.network.RetrofitClient.apiService.getMyWishlist(session.userId)
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        val networkProducts = response.body()?.products ?: emptyList()
+                        networkProducts.forEach { prod ->
+                            repository.toggleWishlist(prod.id, true)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
         }
     }
 
@@ -215,8 +283,38 @@ class MarketViewModel(
     var paymentResultError by mutableStateOf<String?>(null)
         private set
 
+    var appBannerUrl by mutableStateOf<String?>(null)
+        private set
+
+    var appSettingsMap by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
     init {
         loadProductsFromApi()
+        loadAppSettings()
+        
+        // Silently log visitor
+        viewModelScope.launch {
+            try {
+                com.example.network.RetrofitClient.apiService.logVisitor()
+            } catch (e: Exception) {
+                // Ignore network failures for visitor logging
+            }
+        }
+    }
+
+    private fun loadAppSettings() {
+        viewModelScope.launch {
+            try {
+                val res = com.example.network.RetrofitClient.apiService.getAppSettings()
+                if (res.isSuccessful && res.body()?.success == true) {
+                    val settings = res.body()?.settings ?: emptyMap()
+                    appSettingsMap = settings
+                    appBannerUrl = settings["app_banner"]
+                }
+            } catch (e: Exception) {
+            }
+        }
     }
 
     fun loadProductsFromApi() {
@@ -254,6 +352,9 @@ class MarketViewModel(
                     ),
                     passwordEntered
                 )
+                // Force login in background to save session properly
+                repository.login(email.trim(), passwordEntered)
+                
                 fetchAndUploadFcmToken()
                 onResult(true, null)
             } catch (e: Exception) {
@@ -548,13 +649,10 @@ class MarketViewModel(
     // Checkout / Simulated Payment Gateway
     fun checkout(
         paymentMethod: String,
-        cardNumber: String,
-        cardHolder: String,
-        expiryDate: String,
-        cvv: String,
         shippingAddress: String,
-        pickupSchedule: String,
-        deliverySchedule: String
+        phone: String,
+        fullName: String,
+        onSuccess: () -> Unit
     ) {
         val currentSummary = cartSummary.value
 
@@ -566,45 +664,52 @@ class MarketViewModel(
         }
 
         // Double Check Form entries
-        if (shippingAddress.isBlank() || pickupSchedule.isBlank() || deliverySchedule.isBlank()) {
-            paymentResultError = "Please complete all fields including pickup and delivery schedules."
+        if (shippingAddress.isBlank() || phone.isBlank() || fullName.isBlank()) {
+            paymentResultError = "Please complete all fields"
             return
-        }
-
-        if (paymentMethod != "cod") {
-            if (cardNumber.length < 13 || cardHolder.isBlank() || expiryDate.isBlank() || cvv.length < 3) {
-                paymentResultError = "Please complete all credit card fields."
-                return
-            }
-
-            // Apply basic check digits verification logic (Luhn check)
-            val isCardValid = validateCardLuhn(cardNumber)
-            if (!isCardValid) {
-                paymentResultError = "Payment failed: Invalid Credit Card number check (Luhn Algorithm mismatch)."
-                return
-            }
         }
 
         viewModelScope.launch {
             isPaymentProcessing = true
             paymentResultError = null
             paymentResultSuccess = null
-            
-            // Simulate bank gateway latency to depict processing & verification sequence
-            delay(1500)
 
             try {
-                val cardLast4 = if (paymentMethod == "cod") "" else cardNumber.takeLast(4)
-                val order = repository.checkOutCart(
+                // Construct the network items from cart
+                val networkItems = currentSummary.items.map {
+                    com.example.network.NetworkCartItem(
+                        productId = it.product.id,
+                        quantity = it.cartItem.quantity,
+                        price = it.product.price
+                    )
+                }
+
+                val request = com.example.network.OrderRequest(
+                    userId = session.userId,
+                    totalAmount = currentSummary.total,
                     paymentMethod = paymentMethod,
-                    cardLast4 = if (paymentMethod == "cod") "" else "Visa *${cardLast4}",
-                    shippingAddress = shippingAddress,
-                    pickupSchedule = pickupSchedule,
-                    deliverySchedule = deliverySchedule,
-                    finalTotal = currentSummary.total
+                    address = shippingAddress,
+                    phone = phone,
+                    items = networkItems
                 )
-                paymentResultSuccess = order
-                clearPromoCode()
+
+                val response = com.example.network.RetrofitClient.apiService.placeOrder(request)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    val orderId = response.body()?.orderId ?: "SNOW-${System.currentTimeMillis()}"
+                    paymentResultSuccess = com.example.data.Order(
+                        id = orderId,
+                        timestamp = System.currentTimeMillis(),
+                        itemsSummary = "Order from Checkout",
+                        totalAmount = currentSummary.total,
+                        status = "pending",
+                        paymentCardLast4 = paymentMethod,
+                        shippingAddress = shippingAddress
+                    )
+                    repository.clearCart() 
+                    onSuccess()
+                } else {
+                    paymentResultError = response.body()?.message ?: "Failed to place order."
+                }
             } catch (e: Exception) {
                 paymentResultError = e.message ?: "Transaction failed. Please try again."
             } finally {

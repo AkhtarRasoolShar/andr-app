@@ -98,24 +98,37 @@ data class UploadImageResponse(
     val message: String? = null
 )
 
-data class NetworkCartItem(
-    @Json(name = "product_id") val productId: Int,
-    @Json(name = "quantity") val quantity: Int,
-    @Json(name = "price") val price: Double
-)
-
 data class OrderRequest(
     @Json(name = "user_id") val userId: Int,
     @Json(name = "total_amount") val totalAmount: Double,
     @Json(name = "payment_method") val paymentMethod: String = "COD",
-    @Json(name = "address_id") val addressId: Int? = null,
+    val address: String,
+    val phone: String,
     @Json(name = "items") val items: List<NetworkCartItem>
+)
+
+data class NetworkCartItem(
+    @Json(name = "product_id") val productId: Int,
+    val quantity: Int,
+    val price: Double
 )
 
 data class OrderResponse(
     val success: Boolean,
     val message: String? = null,
     @Json(name = "order_id") val orderId: String? = null
+)
+
+data class OrderHistoryResponse(
+    val success: Boolean,
+    val orders: List<NetworkOrder>?
+)
+
+data class NetworkOrder(
+    val id: String,
+    @Json(name = "total_amount") val totalAmount: Double,
+    val status: String,
+    @Json(name = "created_at") val createdAt: String
 )
 
 data class ProductResponse(
@@ -130,6 +143,11 @@ data class ProductResponse(
     val rating: Double? = null
 )
 
+data class ProductListResponse(
+    val success: Boolean,
+    val products: List<ProductResponse>?
+)
+
 data class FcmTokenRequest(
     @Json(name = "user_id") val userId: Int,
     @Json(name = "fcm_token") val fcmToken: String
@@ -140,7 +158,27 @@ data class FcmTokenResponse(
     val message: String? = null
 )
 
+data class WishlistRequest(
+    @Json(name = "user_id") val userId: Int,
+    @Json(name = "product_id") val productId: Int
+)
+
+data class WishlistToggleResponse(
+    val success: Boolean,
+    @Json(name = "is_favorite") val isFavorite: Boolean?,
+    val message: String? = null
+)
+
+data class SettingsResponse(
+    val success: Boolean,
+    val settings: Map<String, String>? = null,
+    val message: String? = null
+)
+
 interface SnowwhiteApi {
+    @GET("log_visitor.php")
+    suspend fun logVisitor(): retrofit2.Response<Unit>
+
     @POST("login.php")
     suspend fun login(@Body request: LoginRequest): LoginResponse
 
@@ -151,7 +189,7 @@ interface SnowwhiteApi {
     suspend fun updateFcmToken(@Body request: FcmTokenRequest): FcmTokenResponse
 
     @GET("get_products.php")
-    suspend fun getProducts(): List<ProductResponse>
+    suspend fun getProducts(): retrofit2.Response<ProductListResponse>
 
     @POST("add_product.php")
     suspend fun addProduct(@Body request: AddProductRequest): AddProductResponse
@@ -160,13 +198,25 @@ interface SnowwhiteApi {
     suspend fun uploadImage(@Body request: UploadImageRequest): UploadImageResponse
 
     @POST("place_order.php")
-    suspend fun placeOrder(@Body request: OrderRequest): OrderResponse
+    suspend fun placeOrder(@Body request: OrderRequest): retrofit2.Response<OrderResponse>
+
+    @GET("get_orders.php")
+    suspend fun getMyOrders(@retrofit2.http.Query("user_id") userId: Int): retrofit2.Response<OrderHistoryResponse>
 
     @POST("update_product.php")
     suspend fun updateProduct(@Body request: UpdateProductRequest): UpdateProductResponse
 
     @POST("delete_product.php")
     suspend fun deleteProduct(@Body request: DeleteProductRequest): DeleteProductResponse
+
+    @POST("wishlist.php")
+    suspend fun toggleWishlist(@Body request: WishlistRequest): retrofit2.Response<WishlistToggleResponse>
+
+    @GET("wishlist.php")
+    suspend fun getMyWishlist(@retrofit2.http.Query("user_id") userId: Int): retrofit2.Response<ProductListResponse>
+
+    @GET("get_settings.php")
+    suspend fun getAppSettings(): retrofit2.Response<SettingsResponse>
 }
 
 object RetrofitClient {
@@ -180,8 +230,18 @@ object RetrofitClient {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    private val securityInterceptor = okhttp3.Interceptor { chain ->
+        val original = chain.request()
+        val request = original.newBuilder()
+            .header("X-API-KEY", "SnowWhite_Secure_Key_2026")
+            .method(original.method, original.body)
+            .build()
+        chain.proceed(request)
+    }
+
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .addInterceptor(securityInterceptor)
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()

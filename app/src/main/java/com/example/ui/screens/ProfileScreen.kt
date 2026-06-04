@@ -27,12 +27,18 @@ import androidx.compose.ui.window.Dialog
 import com.example.data.UserProfile
 import com.example.viewmodel.MarketViewModel
 
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+
 @Composable
 fun ProfileScreen(
     viewModel: MarketViewModel,
     onNavigateToTab: (Int) -> Unit
 ) {
     val loggedInUser by viewModel.loggedInUser.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.example.data.SessionManager(context) }
 
     var isCreatingState by remember { mutableStateOf(false) } // toggle between login & sign-up forms
 
@@ -46,6 +52,47 @@ fun ProfileScreen(
 
     var formError by remember { mutableStateOf<String?>(null) }
     var successMsg by remember { mutableStateOf<String?>(null) }
+
+    val showBiometricAuth = {
+        val activity = context as? FragmentActivity
+        if (activity != null) {
+            val executor = ContextCompat.getMainExecutor(activity)
+            val biometricPrompt = BiometricPrompt(activity, executor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        val cachedEmail = sessionManager.getCachedEmail()
+                        val cachedName = sessionManager.getCachedName()
+                        val cachedRole = sessionManager.getCachedRole()
+                        if (cachedEmail != null && cachedName != null && cachedRole != null) {
+                            viewModel.autoLoginFromCache(cachedEmail, cachedName, cachedRole)
+                            successMsg = "Biometric Login Successful"
+                            onNavigateToTab(0)
+                        }
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        formError = "Biometric Auth Error: $errString"
+                    }
+                }
+            )
+
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Biometric Login")
+                .setSubtitle("Log in using your biometric credential")
+                .setNegativeButtonText("Cancel")
+                .build()
+
+            biometricPrompt.authenticate(promptInfo)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (loggedInUser == null && sessionManager.isBiometricEnabled() && sessionManager.getCachedEmail() != null) {
+            showBiometricAuth()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -94,7 +141,7 @@ fun ProfileScreen(
         if (user != null) {
             UserProfileCard(
                 user = user,
-                allOrders = allOrders,
+                allOrders = allOrders ?: emptyList(),
                 viewModel = viewModel,
                 onLogout = { 
                     viewModel.logout() 
@@ -295,6 +342,10 @@ fun ProfileScreen(
                                     if (success) {
                                         successMsg = "Premium Card Account created successfully! Logged in as Member."
                                         formError = null
+                                        if (sessionManager.isBiometricEnabled()) {
+                                            sessionManager.cacheSecureSession(emailVal, fullNameVal, "customer")
+                                        }
+                                        onNavigateToTab(0)
                                     } else {
                                         formError = errMsg
                                         successMsg = null
@@ -305,6 +356,11 @@ fun ProfileScreen(
                                     if (success) {
                                         successMsg = "Successfully authenticated. Welcome back!"
                                         formError = null
+                                        if (sessionManager.isBiometricEnabled()) {
+                                            val uname = emailVal.substringBefore("@")
+                                            sessionManager.cacheSecureSession(emailVal, uname, "customer")
+                                        }
+                                        onNavigateToTab(0)
                                     } else {
                                         formError = errMsg ?: "Could not verify profile credentials."
                                         successMsg = null
@@ -340,6 +396,25 @@ fun ProfileScreen(
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold
                         )
+                    }
+
+                    if (!isCreatingState && sessionManager.isBiometricEnabled() && sessionManager.getCachedEmail() != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider()
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = showBiometricAuth,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Icon(Icons.Default.Fingerprint, "Biometric icon", modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Log In with Biometrics", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -632,6 +707,53 @@ fun UserProfileCard(
             ProfileDataRow(label = "Phone Contact", value = user.phoneNumber, icon = Icons.Default.Phone)
             ProfileDataRow(label = "Membership Region", value = user.city, icon = Icons.Default.LocationCity)
             ProfileDataRow(label = "Delivery Destination", value = user.deliveryAddress, icon = Icons.Default.HomeWork)
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "SECURITY SETTINGS",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 1.sp
+            )
+            
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val sessionManager = remember { com.example.data.SessionManager(context) }
+            var biometricEnabled by remember { mutableStateOf(sessionManager.isBiometricEnabled()) }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Biometric Login",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Use fingerprint or face unlock to sign in",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = biometricEnabled,
+                    onCheckedChange = {
+                        biometricEnabled = it
+                        sessionManager.setBiometricEnabled(it)
+                        if (it) {
+                            sessionManager.cacheSecureSession(user.email, user.fullName, if (user.isAdmin) "admin" else "customer")
+                        }
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))

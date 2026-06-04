@@ -37,6 +37,34 @@ class SessionManager(context: Context) {
     }
 
     fun clearSession() {
-        prefs.edit().clear().apply()
+        prefs.edit()
+            .remove("is_logged_in")
+            .remove("user_id")
+            .remove("name")
+            .remove("email")
+            .remove("role")
+            .apply()
     }
+
+    fun setBiometricEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("biometric_enabled", enabled).apply()
+    }
+
+    fun isBiometricEnabled(): Boolean {
+        return prefs.getBoolean("biometric_enabled", false)
+    }
+
+    // Secure token cache for restoring session
+    fun cacheSecureSession(email: String, name: String, role: String) {
+        prefs.edit().apply {
+            putString("cached_email", email)
+            putString("cached_name", name)
+            putString("cached_role", role)
+            apply()
+        }
+    }
+
+    fun getCachedEmail(): String? = prefs.getString("cached_email", null)
+    fun getCachedName(): String? = prefs.getString("cached_name", null)
+    fun getCachedRole(): String? = prefs.getString("cached_role", null)
 }

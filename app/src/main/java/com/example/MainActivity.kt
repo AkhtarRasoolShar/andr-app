@@ -37,9 +37,30 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.MarketViewModel
 import com.example.viewmodel.MarketViewModelFactory
 
-class MainActivity : ComponentActivity() {
+import androidx.fragment.app.FragmentActivity
+
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val requestPermissionLauncher = registerForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { isGranted: Boolean ->
+                if (isGranted) {
+                    // FCM SDK (and your app) can post notifications.
+                } else {
+                    // Inform user that that your app will not show notifications.
+                }
+            }
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         
         // Setup local offline database and repository references
         val database = AppDatabase.getDatabase(applicationContext)
@@ -91,6 +112,16 @@ class MainActivity : ComponentActivity() {
 
                  Scaffold(
                      modifier = Modifier.fillMaxSize(),
+                     floatingActionButton = {
+                         FloatingActionButton(
+                             onClick = { selectedTab = 5 },
+                             containerColor = MaterialTheme.colorScheme.primaryContainer,
+                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                             modifier = Modifier.testTag("fab_support")
+                         ) {
+                             Icon(imageVector = androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Virtual Support")
+                         }
+                     },
                      bottomBar = {
                          NavigationBar(
                              modifier = Modifier
@@ -197,6 +228,10 @@ class MainActivity : ComponentActivity() {
                             4 -> ProfileScreen(
                                 viewModel = viewModel,
                                 onNavigateToTab = { targetTab -> selectedTab = targetTab }
+                            )
+                            5 -> com.example.ui.screens.SupportChatScreen(
+                                viewModel = viewModel,
+                                onBack = { selectedTab = 0 }
                             )
                         }
                     }
