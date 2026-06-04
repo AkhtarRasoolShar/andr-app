@@ -57,29 +57,22 @@ fun ProfileScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
-                        )
-                    )
-                ),
+                .height(160.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 32.dp)
+                modifier = Modifier.padding(top = 28.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = "Profile cover icon",
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier
                         .size(54.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f))
                         .padding(8.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -87,7 +80,7 @@ fun ProfileScreen(
                     text = if (loggedInUser != null) "MEMBER REGISTRY" else "SNOWHITE MEMBERSHIP",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                     letterSpacing = 2.sp
                 )
             }
@@ -102,6 +95,7 @@ fun ProfileScreen(
             UserProfileCard(
                 user = user,
                 allOrders = allOrders,
+                viewModel = viewModel,
                 onLogout = { 
                     viewModel.logout() 
                     onNavigateToTab(4)
@@ -448,13 +442,131 @@ fun ProfileScreen(
 fun UserProfileCard(
     user: UserProfile,
     allOrders: List<com.example.data.Order>,
+    viewModel: MarketViewModel,
     onLogout: () -> Unit,
     onUpdatePreferences: (String) -> Unit
 ) {
     var selectedReceiptOrder by remember { mutableStateOf<com.example.data.Order?>(null) }
+    val savedAddresses by viewModel.savedAddresses.collectAsState()
+    var isAddingAddress by remember { mutableStateOf(false) }
+
+    var newAddressTitle by remember { mutableStateOf("") }
+    var newAddressStr by remember { mutableStateOf("") }
+    var newAddressPhone by remember { mutableStateOf("") }
+
+    if (isAddingAddress) {
+        AlertDialog(
+            onDismissRequest = { isAddingAddress = false },
+            title = { Text("Add Saved Address") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newAddressTitle,
+                        onValueChange = { newAddressTitle = it },
+                        label = { Text("Title (e.g., Home)") },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = newAddressStr,
+                        onValueChange = { newAddressStr = it },
+                        label = { Text("Full Address") },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = newAddressPhone,
+                        onValueChange = { newAddressPhone = it },
+                        label = { Text("Phone Number") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (newAddressTitle.isNotBlank() && newAddressStr.isNotBlank()) {
+                        viewModel.addSavedAddress(newAddressTitle, newAddressStr, newAddressPhone)
+                        isAddingAddress = false
+                        newAddressTitle = ""
+                        newAddressStr = ""
+                        newAddressPhone = ""
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { isAddingAddress = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     selectedReceiptOrder?.let { receiptOrder ->
         ReceiptDetailDialog(order = receiptOrder, onDismiss = { selectedReceiptOrder = null })
+    }
+
+    // Saved Addresses Section
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Addresses",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Saved Addresses",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                TextButton(onClick = { isAddingAddress = true }) {
+                    Text("Add")
+                }
+            }
+
+            if (savedAddresses.isEmpty()) {
+                Text(
+                    text = "No saved addresses. Add one for faster checkout.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+                savedAddresses.forEach { addr ->
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                        Text(
+                            text = addr.title,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = addr.fullAddress,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = addr.phoneNumber,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Divider(modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    }
+                }
+            }
+        }
     }
 
     Card(

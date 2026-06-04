@@ -10,6 +10,9 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
     val allCartItems: Flow<List<CartItem>> = dao.getCartItemsFlow()
     val allOrders: Flow<List<Order>> = dao.getAllOrdersFlow()
     val loggedInUser: Flow<UserProfile?> = dao.getLoggedInUserFlow()
+    val allUserProfiles: Flow<List<UserProfile>> = dao.getAllUserProfilesFlow()
+    val wishlistIds: Flow<List<Int>> = dao.getWishlistFlow()
+    val savedAddresses: Flow<List<SavedAddress>> = dao.getSavedAddressesFlow()
 
     suspend fun uploadProduct(
         title: String,
@@ -157,7 +160,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         }
 
         if (apiSuccess && returnedUser != null) {
-            val isAdminRole = userRole.equals("admin", ignoreCase = true)
+            val isAdminRole = userRole.equals("admin", ignoreCase = true) || userRole.equals("super_admin", ignoreCase = true)
             val adminProfile = UserProfile(
                 email = returnedUser.email,
                 fullName = returnedUser.fullName,
@@ -172,8 +175,17 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             dao.logoutAllUsers()
             dao.insertProfile(adminProfile)
 
-            // Cache session in SharedPreferences
+            // Cache session in SessionManager & SharedPreferences
             try {
+                val fetchedId = returnedUser.userId ?: returnedUser.id ?: 1
+                val sessionManager = SessionManager(context)
+                sessionManager.saveSession(
+                    userId = fetchedId,
+                    name = returnedUser.fullName,
+                    email = returnedUser.email,
+                    role = userRole
+                )
+
                 val sharedPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
                 sharedPrefs.edit().apply {
                     putString("id", returnedUser.email)
@@ -197,6 +209,9 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         }
         dao.logoutAllUsers()
         try {
+            val sessionManager = SessionManager(context)
+            sessionManager.clearSession()
+
             val sharedPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
             sharedPrefs.edit().clear().apply()
         } catch (e: Exception) {
@@ -272,8 +287,10 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         cardLast4: String,
         shippingAddress: String,
         pickupSchedule: String = "",
-        deliverySchedule: String = ""
+        deliverySchedule: String = "",
+        finalTotal: Double
     ): Order {
+        val user = loggedInUser.first()
         val cartList = allCartItems.first()
         if (cartList.isEmpty()) {
             throw Exception("Cart is empty")
@@ -287,26 +304,25 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         }
 
         val summaryItemsList = cartUiList.map { "${it.product.title} x${it.cartItem.quantity}" }
-        val total = cartUiList.sumOf { it.product.price * it.cartItem.quantity }
 
         val networkCartItems = cartUiList.map {
             com.example.network.NetworkCartItem(
                 productId = it.product.id,
-                quantity = it.cartItem.quantity
+                quantity = it.cartItem.quantity,
+                price = it.product.price
             )
         }
 
-        val user = loggedInUser.first()
-        val userEmail = user?.email ?: "guest@snowwhite.com"
+        val sessionManager = SessionManager(context)
+        val session = sessionManager.fetchSession()
+        val userId = session?.userId ?: throw Exception("Please login to place an order")
+        if (userId <= 0) throw Exception("Please login to place an order")
 
         // Fire request to live API place_order.php
         val orderRequest = com.example.network.OrderRequest(
-            email = userEmail,
-            shippingAddress = shippingAddress,
-            payment_method = paymentMethod,
-            paymentCardLast4 = cardLast4,
-            pickupSchedule = pickupSchedule,
-            deliverySchedule = deliverySchedule,
+            userId = userId,
+            totalAmount = finalTotal,
+            paymentMethod = if (paymentMethod.equals("cod", ignoreCase = true)) "COD" else paymentMethod,
             items = networkCartItems
         )
 
@@ -333,7 +349,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             id = orderId,
             timestamp = System.currentTimeMillis(),
             itemsSummary = summaryItemsList.joinToString(", "),
-            totalAmount = total,
+            totalAmount = finalTotal,
             status = "Processing",
             paymentCardLast4 = cardLast4,
             shippingAddress = shippingAddress,
@@ -343,7 +359,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
         // Deduct/Add Loyalty Membership Points if logged in and record details
         if (user != null) {
-            val pointsEarned = (total * 0.1).toInt().coerceAtLeast(1)
+            val pointsEarned = (finalTotal * 0.1).toInt().coerceAtLeast(1)
             val currentHistory = user.purchaseHistory
             val updatedHistory = if (currentHistory.isBlank()) orderId else "$currentHistory,$orderId"
             val updatedUser = user.copy(
@@ -376,7 +392,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
     suspend fun ensureAutoLoginUser(email: String, fullName: String, role: String) {
         val existing = dao.getUserByEmail(email)
-        val isAdminRole = role.equals("admin", ignoreCase = true)
+        val isAdminRole = role.equals("admin", ignoreCase = true) || role.equals("super_admin", ignoreCase = true)
         val profile = UserProfile(
             email = email,
             fullName = existing?.fullName ?: fullName,
@@ -390,6 +406,28 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         )
         dao.logoutAllUsers()
         dao.insertProfile(profile)
+    }
+
+    suspend fun updateUserRole(email: String, newRole: String) {
+        val isAdmin = newRole.equals("admin", ignoreCase = true) || newRole.equals("super_admin", ignoreCase = true)
+        dao.updateUserRole(email, newRole, isAdmin)
+    }
+
+    // Addresses/Wishlist
+    suspend fun toggleWishlist(productId: Int, isWishlisted: Boolean) {
+        if (isWishlisted) {
+            dao.insertWishlistItem(WishlistItem(productId))
+        } else {
+            dao.deleteWishlistItem(productId)
+        }
+    }
+
+    suspend fun addSavedAddress(title: String, address: String, phone: String) {
+        dao.insertSavedAddress(SavedAddress(title = title, fullAddress = address, phoneNumber = phone))
+    }
+
+    suspend fun deleteUserProfile(userProfile: UserProfile) {
+        dao.deleteProfile(userProfile)
     }
 
     suspend fun updateProductRemote(

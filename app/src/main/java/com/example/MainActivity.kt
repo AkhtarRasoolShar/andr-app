@@ -56,15 +56,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
          setContent {
-             MyApplicationTheme {
-                 val sharedPrefs = remember {
-                     applicationContext.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+             MyApplicationTheme(darkTheme = viewModel.darkModeEnabled) {
+                 val sessionManager = remember { com.example.data.SessionManager(applicationContext) }
+                  val sharedPrefs = remember {
+                     applicationContext.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE) // legacy
                  }
                  val initialTab = remember {
-                     val cachedId = sharedPrefs.getString("id", null)
+                     val cachedId = sessionManager.fetchSession()?.email
                      val cachedRole = sharedPrefs.getString("role", null)
                      if (cachedId != null) {
-                         if (cachedRole.equals("admin", ignoreCase = true)) 2 else 0
+                         if ((sessionManager.fetchSession()?.role.equals("admin", ignoreCase = true) || sessionManager.fetchSession()?.role.equals("super_admin", ignoreCase = true))) 2 else 0
                      } else {
                          4 // Start on Login Screen (ProfileScreen)
                      }
@@ -74,16 +75,16 @@ class MainActivity : ComponentActivity() {
                  val cartSummary by viewModel.cartSummary.collectAsState()
 
                  LaunchedEffect(Unit) {
-                     val cachedEmail = sharedPrefs.getString("id", null)
-                     val cachedName = sharedPrefs.getString("name", null)
+                     val cachedEmail = sessionManager.fetchSession()?.email
+                     val cachedName = sessionManager.fetchSession()?.name
                      val cachedRole = sharedPrefs.getString("role", null)
                      if (cachedEmail != null) {
-                         viewModel.autoLoginFromCache(cachedEmail, cachedName ?: "", cachedRole ?: "")
+                         viewModel.autoLoginFromCache(cachedEmail, cachedName ?: "", sessionManager.fetchSession()?.role ?: "")
                      }
                  }
 
                  LaunchedEffect(loggedInUser) {
-                     if (loggedInUser?.isAdmin != true && selectedTab == 2) {
+                     if (loggedInUser == null) { selectedTab = 4 } else if (loggedInUser?.isAdmin != true && selectedTab == 2) {
                          selectedTab = 0
                      }
                  }

@@ -24,7 +24,9 @@ data class UserProfileResponse(
     val city: String,
     val deliveryAddress: String,
     val membershipPoints: Int = 100,
-    val role: String = "customer"
+    val role: String = "customer",
+    @Json(name = "user_id") val userId: Int? = null,
+    @Json(name = "id") val id: Int? = null
 )
 
 data class LoginResponse(
@@ -98,17 +100,16 @@ data class UploadImageResponse(
 
 data class NetworkCartItem(
     @Json(name = "product_id") val productId: Int,
-    val quantity: Int
+    @Json(name = "quantity") val quantity: Int,
+    @Json(name = "price") val price: Double
 )
 
 data class OrderRequest(
-    val email: String,
-    @Json(name = "shipping_address") val shippingAddress: String,
-    @Json(name = "payment_method") val payment_method: String = "cod",
-    @Json(name = "payment_card_last4") val paymentCardLast4: String = "",
-    @Json(name = "pickup_schedule") val pickupSchedule: String = "",
-    @Json(name = "delivery_schedule") val deliverySchedule: String = "",
-    val items: List<NetworkCartItem>
+    @Json(name = "user_id") val userId: Int,
+    @Json(name = "total_amount") val totalAmount: Double,
+    @Json(name = "payment_method") val paymentMethod: String = "COD",
+    @Json(name = "address_id") val addressId: Int? = null,
+    @Json(name = "items") val items: List<NetworkCartItem>
 )
 
 data class OrderResponse(
@@ -129,12 +130,25 @@ data class ProductResponse(
     val rating: Double? = null
 )
 
+data class FcmTokenRequest(
+    @Json(name = "user_id") val userId: Int,
+    @Json(name = "fcm_token") val fcmToken: String
+)
+
+data class FcmTokenResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
 interface SnowwhiteApi {
     @POST("login.php")
     suspend fun login(@Body request: LoginRequest): LoginResponse
 
     @POST("register.php")
     suspend fun register(@Body request: RegisterRequest): RegisterResponse
+
+    @POST("update_fcm.php")
+    suspend fun updateFcmToken(@Body request: FcmTokenRequest): FcmTokenResponse
 
     @GET("get_products.php")
     suspend fun getProducts(): List<ProductResponse>

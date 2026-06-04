@@ -39,6 +39,34 @@ class MarketViewModel(
     private val repository: InventoryRepository
 ) : AndroidViewModel(application) {
 
+    // App Settings Toggles
+    var pushNotificationsEnabled by mutableStateOf(true)
+        private set
+    var darkModeEnabled by mutableStateOf(false)
+        private set
+
+    // Store Settings Toggles
+    var pauseOrdersEnabled by mutableStateOf(false)
+        private set
+    var storePolicyText by mutableStateOf("Welcome to our Premium Store. Quality guaranteed.")
+        private set
+
+    fun updatePushNotificationsEnabled(enabled: Boolean) {
+        pushNotificationsEnabled = enabled
+    }
+
+    fun updateDarkModeEnabled(enabled: Boolean) {
+        darkModeEnabled = enabled
+    }
+
+    fun updatePauseOrdersEnabled(enabled: Boolean) {
+        pauseOrdersEnabled = enabled
+    }
+
+    fun updateStorePolicyText(policy: String) {
+        storePolicyText = policy
+    }
+
     // Filter and search criteria
     private val _selectedCategory = MutableStateFlow("All")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
@@ -89,6 +117,7 @@ class MarketViewModel(
 
         val subtotal = itemsList.sumOf { it.product.price * it.cartItem.quantity }
         val discountRate = when (coupon.uppercase().trim()) {
+            "SNOW10" -> 0.10 // 10% Off
             "SNOW15" -> 0.15 // 15% Off
             "GLOW20" -> 0.20 // 20% Off
             "HANDMADE10" -> 0.10 // Backwards compatibility 10%
@@ -136,6 +165,41 @@ class MarketViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
+        )
+
+    val wishlistIds: StateFlow<List<Int>> = repository.wishlistIds
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val savedAddresses: StateFlow<List<SavedAddress>> = repository.savedAddresses
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun toggleWishlist(productId: Int) {
+        val current = wishlistIds.value
+        val isWishlisted = current.contains(productId)
+        viewModelScope.launch {
+            repository.toggleWishlist(productId, !isWishlisted)
+        }
+    }
+
+    fun addSavedAddress(title: String, address: String, phone: String) {
+        viewModelScope.launch {
+            repository.addSavedAddress(title, address, phone)
+        }
+    }
+
+    val allUserProfiles: StateFlow<List<UserProfile>> = repository.allUserProfiles
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
 
     private val _apiState = MutableStateFlow<ApiProductState>(ApiProductState.Loading)
@@ -190,6 +254,7 @@ class MarketViewModel(
                     ),
                     passwordEntered
                 )
+                fetchAndUploadFcmToken()
                 onResult(true, null)
             } catch (e: Exception) {
                 onResult(false, e.localizedMessage ?: "Unknown creation failure.")
@@ -201,9 +266,33 @@ class MarketViewModel(
         viewModelScope.launch {
             try {
                 val success = repository.login(email, passwordEntered)
+                if (success) {
+                    fetchAndUploadFcmToken()
+                }
                 onResult(success, if (success) null else "Invalid username or security combination.")
             } catch (e: Exception) {
                 onResult(false, e.localizedMessage ?: "Sign-in error.")
+            }
+        }
+    }
+
+    private fun fetchAndUploadFcmToken() {
+        val sessionMgr = com.example.data.SessionManager(getApplication())
+        val userId = sessionMgr.fetchSession()?.userId
+        if (userId != null) {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val token = task.result
+                    viewModelScope.launch {
+                        try {
+                            com.example.network.RetrofitClient.apiService.updateFcmToken(
+                                com.example.network.FcmTokenRequest(userId, token)
+                            )
+                        } catch (e: Exception) {
+                            // Ignore network failures for FCM
+                        }
+                    }
+                }
             }
         }
     }
@@ -300,7 +389,11 @@ class MarketViewModel(
     // Coupon actions
     fun applyPromoCode(code: String) {
         val uppercaseCode = code.uppercase().trim()
-        if (uppercaseCode == "SNOW15") {
+        if (uppercaseCode == "SNOW10") {
+            _couponCode.value = "SNOW10"
+            _couponSuccess.value = "10% Promo Code \"SNOW10\" applied!"
+            _couponError.value = null
+        } else if (uppercaseCode == "SNOW15") {
             _couponCode.value = "SNOW15"
             _couponSuccess.value = "15% Welcome Promo Code \"SNOW15\" applied!"
             _couponError.value = null
@@ -391,6 +484,18 @@ class MarketViewModel(
         }
     }
 
+    fun updateUserRole(email: String, newRole: String) {
+        viewModelScope.launch {
+            repository.updateUserRole(email, newRole)
+        }
+    }
+
+    fun deleteUserProfile(userProfile: UserProfile) {
+        viewModelScope.launch {
+            repository.deleteUserProfile(userProfile)
+        }
+    }
+
     fun updateProductRemote(
         id: Int,
         title: String,
@@ -451,6 +556,15 @@ class MarketViewModel(
         pickupSchedule: String,
         deliverySchedule: String
     ) {
+        val currentSummary = cartSummary.value
+
+        val sessionManager = com.example.data.SessionManager(getApplication())
+        val session = sessionManager.fetchSession()
+        if (session == null || session.userId <= 0) {
+            paymentResultError = "Please login to place an order"
+            return
+        }
+
         // Double Check Form entries
         if (shippingAddress.isBlank() || pickupSchedule.isBlank() || deliverySchedule.isBlank()) {
             paymentResultError = "Please complete all fields including pickup and delivery schedules."
@@ -486,7 +600,8 @@ class MarketViewModel(
                     cardLast4 = if (paymentMethod == "cod") "" else "Visa *${cardLast4}",
                     shippingAddress = shippingAddress,
                     pickupSchedule = pickupSchedule,
-                    deliverySchedule = deliverySchedule
+                    deliverySchedule = deliverySchedule,
+                    finalTotal = currentSummary.total
                 )
                 paymentResultSuccess = order
                 clearPromoCode()

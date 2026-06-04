@@ -11,29 +11,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = RustCaramel,
-    onPrimary = NightForest,
-    secondary = SilverSage,
-    onSecondary = NightForest,
-    tertiary = SandDune,
-    background = NightForest,
-    surface = DarkEbers,
-    onBackground = OffWhiteLinen,
-    onSurface = OffWhiteLinen,
-    outline = SilverSage
+    primary = SoftTeal,
+    onPrimary = White,
+    secondary = IceBlue,
+    onSecondary = DeepMatteGrey,
+    tertiary = OffWhite,
+    background = DeepMatteGrey,
+    surface = CardDarkSurface,
+    onBackground = White,
+    onSurface = White,
+    outline = IceBlue
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = TerracottaClay,
-    onPrimary = CanvasIvory,
-    secondary = SageWillow,
-    onSecondary = CanvasIvory,
-    tertiary = SandDune,
-    background = CreamChiffon,
-    surface = CanvasIvory,
-    onBackground = DeepCharcoalBrown,
-    onSurface = DeepCharcoalBrown,
-    outline = SandDune
+    primary = SoftTeal,
+    onPrimary = White,
+    secondary = IceBlue,
+    onSecondary = DeepMatteGrey,
+    tertiary = OffWhite,
+    background = White,
+    surface = OffWhite,
+    onBackground = DeepMatteGrey,
+    onSurface = DeepMatteGrey,
+    outline = IceBlue
 )
 
 @Composable

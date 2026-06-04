@@ -153,10 +153,10 @@ fun AutoScrollingCarousel(
     modifier: Modifier = Modifier
 ) {
     val promoImages = listOf(
-        "https://akhtarhussain.site/api/images/promo1.jpg",
-        "https://akhtarhussain.site/api/images/promo2.jpg",
-        "https://akhtarhussain.site/api/images/promo3.jpg",
-        "https://akhtarhussain.site/api/images/promo4.jpg"
+        "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80"
     )
     val pagerState = rememberPagerState(pageCount = { promoImages.size })
 
@@ -183,11 +183,20 @@ fun AutoScrollingCarousel(
             state = pagerState,
             modifier = Modifier.fillMaxSize()
         ) { page ->
+            val img = promoImages[page]
+            val finalUrl = if (img.startsWith("http://") || img.startsWith("https://")) img else "https://akhtarhussain.site/api/$img"
             AsyncImage(
-                model = promoImages[page],
+                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                    .data(finalUrl)
+                    .crossfade(500)
+                    .error(android.R.drawable.ic_menu_report_image)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .build(),
                 contentDescription = "Promotional Offer ${page + 1}",
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.LightGray)
             )
         }
 
@@ -253,16 +262,7 @@ fun ProceduralCraftImage(category: String, subkey: String, modifier: Modifier = 
             .height(130.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(
-                brush = Brush.radialGradient(
-                    colors = when (category.lowercase()) {
-                        "cosmetics" -> listOf(Color(0xFFFFF0F1), Color(0xFFF5DCDC))
-                        "fragrances" -> listOf(Color(0xFFFFFDF2), Color(0xFFEADFCA))
-                        "personal care" -> listOf(Color(0xFFF1FBF8), Color(0xFFCEECE3))
-                        "apparel" -> listOf(Color(0xFFFCFAF5), Color(0xFFECE4D9))
-                        "dry cleaning" -> listOf(Color(0xFFF4F9FC), Color(0xFFD4E6F1))
-                        else -> listOf(Color.White, Color.LightGray)
-                    }
-                )
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -534,6 +534,104 @@ private fun stride(start: Float, end: Float, step: Float): List<Float> {
 // ==========================================
 
 @Composable
+fun WishlistScreen(viewModel: MarketViewModel, onClose: () -> Unit) {
+    val wishlistIds by viewModel.wishlistIds.collectAsState()
+    val products by viewModel.productsState.collectAsState()
+    val wishlistProducts = products.filter { wishlistIds.contains(it.id) }
+    var activeProductForDetail by remember { mutableStateOf<Product?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // App top title
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 40.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "Your Favorites",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
+        if (wishlistProducts.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.FavoriteBorder,
+                        contentDescription = "Empty wishlist",
+                        modifier = Modifier.size(72.dp),
+                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Your wishlist is bare.",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(wishlistProducts, key = { "wishlist" + it.id }) { item ->
+                    ProductListingCard(
+                        product = item,
+                        viewModel = viewModel,
+                        onClick = { activeProductForDetail = item },
+                        onQuickAdd = { viewModel.addToCart(item) }
+                    )
+                }
+            }
+        }
+    }
+
+    activeProductForDetail?.let { pd ->
+        ProductDetailModal(
+            product = pd,
+            viewModel = viewModel,
+            onDismiss = { activeProductForDetail = null }
+        )
+    }
+}
+
+@Composable
 fun MainCatalogScreen(
     viewModel: MarketViewModel,
     onNavigateToTab: (Int) -> Unit
@@ -544,6 +642,7 @@ fun MainCatalogScreen(
     val cartSummary by viewModel.cartSummary.collectAsState()
 
     var activeProductForDetail by remember { mutableStateOf<Product?>(null) }
+    var isWishlistOpen by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val context = LocalContext.current
@@ -586,104 +685,124 @@ fun MainCatalogScreen(
         permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
     }
 
+    if (isWishlistOpen) {
+        WishlistScreen(viewModel = viewModel, onClose = { isWishlistOpen = false })
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
         // Welcome and Headline Block
-        Card(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(top = 48.dp, bottom = 16.dp, start = 20.dp, end = 20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(top = 48.dp, bottom = 18.dp, start = 20.dp, end = 20.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Authentic Crafts",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "CraftMarket",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    coil.compose.AsyncImage(
+                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data("https://img.icons8.com/color/48/000000/online-store.png")
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "SnowWhite Brand Logo",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SnowWhite",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { isWishlistOpen = true },
+                        modifier = Modifier.testTag("nav_wishlist_badge")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Wishlist",
+                            tint = Color(0xFFE91E63)
                         )
                     }
                     val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
                     BadgedBox(
-                        badge = {
-                            if (qtyCount > 0) {
-                                Badge {
-                                    Text(text = "$qtyCount")
-                                }
+                    badge = {
+                        if (qtyCount > 0) {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ) {
+                                Text(text = "$qtyCount")
                             }
-                        }
-                    ) {
-                        IconButton(
-                            onClick = { onNavigateToTab(1) }, // Navigate to Cart
-                            modifier = Modifier.testTag("nav_cart_badge")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "Active Shopping Cart",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
                         }
                     }
+                ) {
+                    IconButton(
+                        onClick = { onNavigateToTab(1) }, // Navigate to Cart
+                        modifier = Modifier.testTag("nav_cart_badge")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Active Shopping Cart",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Modern Search Field with cancel controls
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.updateSearchQuery(it) },
-                    placeholder = { Text("Find pottery, blankets, silvers...") },
-                    leadingIcon = { Icon(Icons.Default.Search, "Search icon") },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { viewModel.updateSearchQuery("") },
-                                modifier = Modifier.testTag("clear_search_btn")
-                            ) {
-                                Icon(Icons.Default.Clear, "Clear trigger")
-                            }
-                        } else {
-                            IconButton(
-                                onClick = { startVoiceSearch() },
-                                modifier = Modifier.testTag("voice_search_btn")
-                            ) {
-                                Icon(Icons.Default.Mic, "Voice search microphone logo")
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("catalog_search_bar"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                )
+                }
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Modern Search Field with cancel controls
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
+                placeholder = { Text("Find pottery, blankets, silvers...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                leadingIcon = { Icon(Icons.Default.Search, "Search icon", tint = MaterialTheme.colorScheme.primary) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.updateSearchQuery("") },
+                            modifier = Modifier.testTag("clear_search_btn")
+                        ) {
+                            Icon(Icons.Default.Clear, "Clear trigger", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = { startVoiceSearch() },
+                            modifier = Modifier.testTag("voice_search_btn")
+                        ) {
+                            Icon(Icons.Default.Mic, "Voice search microphone logo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("catalog_search_bar"),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.background,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                ),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
         }
 
         AutoScrollingCarousel(
@@ -707,6 +826,7 @@ fun MainCatalogScreen(
                         viewModel.selectCategory(cat)
                         focusManager.clearFocus()
                     },
+                    shape = RoundedCornerShape(50),
                     label = { 
                         Text(
                             text = when(cat) {
@@ -829,9 +949,9 @@ fun MainCatalogScreen(
             else -> {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp, start = 16.dp, end = 16.dp, top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
                     modifier = Modifier
                         .weight(1f)
                         .testTag("product_grid")
@@ -839,6 +959,7 @@ fun MainCatalogScreen(
                     items(products, key = { it.id }) { item ->
                         ProductListingCard(
                             product = item,
+                            viewModel = viewModel,
                             onClick = { activeProductForDetail = item },
                             onQuickAdd = { viewModel.addToCart(item) }
                         )
@@ -861,16 +982,21 @@ fun MainCatalogScreen(
 @Composable
 fun ProductListingCard(
     product: Product,
+    viewModel: MarketViewModel,
     onClick: () -> Unit,
     onQuickAdd: () -> Unit
 ) {
+    val wishlistIds by viewModel.wishlistIds.collectAsState()
+    val isWishlisted = wishlistIds.contains(product.id)
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .testTag("product_card_${product.id}"),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column {
@@ -880,7 +1006,7 @@ fun ProductListingCard(
                 // Real-time stock count alerts
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(Alignment.TopStart)
                         .padding(6.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(
@@ -897,9 +1023,26 @@ fun ProductListingCard(
                         color = Color.White
                     )
                 }
+
+                IconButton(
+                    onClick = { viewModel.toggleWishlist(product.id) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.7f))
+                        .size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Toggle Favorite",
+                        tint = if (isWishlisted) Color(0xFFE91E63) else Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = product.artisanName,
                     style = MaterialTheme.typography.labelSmall,
@@ -933,25 +1076,33 @@ fun ProductListingCard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    IconButton(
-                        onClick = onQuickAdd,
+                    Button(
+                        onClick = {
+                            onQuickAdd()
+                            android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         enabled = product.stock > 0,
+                        shape = RoundedCornerShape(50),
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (product.stock > 0) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outline
-                            )
+                            .height(36.dp)
                             .testTag("add_to_cart_btn_${product.id}"),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.outline
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.AddShoppingCart,
                             contentDescription = "Quick add basket",
                             modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Add",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -966,6 +1117,7 @@ fun ProductDetailModal(
     viewModel: MarketViewModel,
     onDismiss: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -1075,6 +1227,7 @@ fun ProductDetailModal(
                         Button(
                             onClick = {
                                 viewModel.addToCart(product)
+                                android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
                                 onDismiss()
                             },
                             enabled = product.stock > 0,
@@ -1089,7 +1242,10 @@ fun ProductDetailModal(
                         ) {
                             Icon(Icons.Default.ShoppingCartCheckout, "Add checkout symbol")
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (product.stock > 0) "Add to Bag" else "Out of Stock")
+                            Text(
+                                text = if (product.stock > 0) "Add to Bag" else "Out of Stock",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -1112,6 +1268,17 @@ fun CartScreen(
     val isProcessing = viewModel.isPaymentProcessing
     val successOrder = viewModel.paymentResultSuccess
     val errorOrder = viewModel.paymentResultError
+
+    val savedAddresses by viewModel.savedAddresses.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(errorOrder) {
+        if (errorOrder == "Please login to place an order") {
+            android.widget.Toast.makeText(context, errorOrder, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.acknowledgePaymentResult()
+            onNavigateToTab(4)
+        }
+    }
 
     // Textfields inputs for credit checkout
     var cardNum by remember { mutableStateOf("") }
@@ -1347,6 +1514,60 @@ fun CartScreen(
                                         modifier = Modifier.padding(top = 6.dp)
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    // Promo Code Input
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = typedPromo,
+                                    onValueChange = { typedPromo = it.uppercase() },
+                                    label = { Text("Enter Promo Code") },
+                                    modifier = Modifier.weight(1f).height(60.dp),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = { viewModel.applyPromoCode(typedPromo) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.height(56.dp)
+                                ) {
+                                    Text("Apply", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (couponSuccess != null) {
+                                Text(
+                                    text = couponSuccess!!,
+                                    color = Color(0xFF388E3C),
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp, end = 16.dp)
+                                )
+                            }
+                            if (couponError != null) {
+                                Text(
+                                    text = couponError!!,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp, end = 16.dp)
+                                )
                             }
                         }
                     }
@@ -1842,6 +2063,27 @@ fun CartScreen(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
+                                if (savedAddresses.isNotEmpty()) {
+                                    Text("Saved Addresses", style = MaterialTheme.typography.labelMedium)
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    ) {
+                                        items(savedAddresses) { addr ->
+                                            val isSelected = addressStr == addr.fullAddress
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { addressStr = addr.fullAddress },
+                                                label = { Text(addr.title) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
                                 OutlinedTextField(
                                     value = addressStr,
                                     onValueChange = { addressStr = it },
@@ -1897,11 +2139,19 @@ fun CartScreen(
                                             modifier = Modifier.size(24.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        Text("Authenticating Payment ...")
+                                        Text(
+                                            text = "Authenticating Payment ...",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp
+                                        )
                                     } else {
                                         Icon(Icons.Default.EnhancedEncryption, "Lock badge")
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Pay Secured $${String.format(Locale.US, "%.2f", summary.total)}")
+                                        Text(
+                                            text = "Pay Secured $${String.format(java.util.Locale.US, "%.2f", summary.total)}",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp
+                                        )
                                     }
                                 }
                             }
@@ -3185,22 +3435,126 @@ fun OrderHistoryCard(order: Order) {
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFE8F5E9))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = order.status,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32),
-                        fontSize = 11.sp
-                    )
+                Text(
+                    text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Visual Status Timeline
+            val steps = listOf("Placed", "Processing", "Shipped", "Delivered")
+            val rawStatus = order.status
+            val isCancelled = rawStatus.equals("Cancelled", ignoreCase = true)
+            val currentStatus = if (rawStatus == "Pending") "Placed" else rawStatus // map to our steps
+            val currentIndex = if (isCancelled) -1 else (steps.indexOf(currentStatus).takeIf { it >= 0 } ?: 0)
+
+            val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition()
+            val pulseAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.5f,
+                targetValue = 1f,
+                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                    animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (isCancelled) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD32F2F)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancelled", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = "Cancelled",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD32F2F),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                } else {
+                    steps.forEachIndexed { index, step ->
+                        val isCompleted = index < currentIndex
+                        val isActive = index == currentIndex
+                        val isFuture = index > currentIndex
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                // Left line segment
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(2.dp)
+                                        .background(
+                                            if (index == 0) Color.Transparent
+                                            else if (index <= currentIndex) MaterialTheme.colorScheme.primary
+                                            else Color(0xFFE0E0E0)
+                                        )
+                                )
+                                // Circle
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (isActive) 28.dp else 24.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isCompleted) MaterialTheme.colorScheme.primary
+                                            else if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha)
+                                            else Color(0xFFE0E0E0)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isCompleted) {
+                                        Icon(Icons.Default.Check, contentDescription = "Done", tint = Color.White, modifier = Modifier.size(16.dp))
+                                    } else if (isActive) {
+                                        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Color.White))
+                                    }
+                                }
+                                // Right line segment
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(2.dp)
+                                        .background(
+                                            if (index == steps.size - 1) Color.Transparent
+                                            else if (isCompleted) MaterialTheme.colorScheme.primary
+                                            else Color(0xFFE0E0E0)
+                                        )
+                                )
+                            }
+                            
+                            Text(
+                                text = step,
+                                fontSize = 11.sp,
+                                fontWeight = if (isActive || isCompleted) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isActive) MaterialTheme.colorScheme.primary else if (isCompleted) MaterialTheme.colorScheme.onSurface else Color.Gray,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "Items Ordered: ",
@@ -3293,31 +3647,6 @@ fun OrderHistoryCard(order: Order) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Elegant tracking progress bar
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Handcrafted Processing", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("In Transit", fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
-                    Text("Delivered", fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -3334,6 +3663,20 @@ fun OrderHistoryCard(order: Order) {
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = { /* No-Op for now, just visual */ },
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("View Details", fontWeight = FontWeight.Bold)
             }
         }
     }

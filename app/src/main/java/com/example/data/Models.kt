@@ -51,6 +51,19 @@ data class UserProfile(
     val role: String = "customer"
 )
 
+@Entity(tableName = "wishlist")
+data class WishlistItem(
+    @PrimaryKey val productId: Int
+)
+
+@Entity(tableName = "saved_addresses")
+data class SavedAddress(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String,
+    val fullAddress: String,
+    val phoneNumber: String
+)
+
 @Dao
 interface MarketplaceDao {
     // Products
@@ -113,4 +126,30 @@ interface MarketplaceDao {
 
     @Query("UPDATE user_profiles SET isLoggedIn = 1 WHERE email = :email")
     suspend fun loginUser(email: String)
+
+    @Query("SELECT * FROM user_profiles ORDER BY email ASC")
+    fun getAllUserProfilesFlow(): Flow<List<UserProfile>>
+
+    @Query("UPDATE user_profiles SET role = :newRole, isAdmin = :isAdmin WHERE email = :email")
+    suspend fun updateUserRole(email: String, newRole: String, isAdmin: Boolean)
+
+    @Delete
+    suspend fun deleteProfile(profile: UserProfile)
+
+    // Wishlist
+    @Query("SELECT productId FROM wishlist")
+    fun getWishlistFlow(): Flow<List<Int>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertWishlistItem(item: WishlistItem)
+
+    @Query("DELETE FROM wishlist WHERE productId = :productId")
+    suspend fun deleteWishlistItem(productId: Int)
+
+    // Addresses
+    @Query("SELECT * FROM saved_addresses")
+    fun getSavedAddressesFlow(): Flow<List<SavedAddress>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSavedAddress(address: SavedAddress)
 }
