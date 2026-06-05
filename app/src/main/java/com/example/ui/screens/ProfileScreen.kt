@@ -30,6 +30,9 @@ import com.example.viewmodel.MarketViewModel
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 @Composable
 fun ProfileScreen(
@@ -350,6 +353,7 @@ fun ProfileScreen(
                                     } else {
                                         formError = errMsg
                                         successMsg = null
+                                        android.widget.Toast.makeText(context, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 }
                             } else {
@@ -365,6 +369,7 @@ fun ProfileScreen(
                                     } else {
                                         formError = errMsg ?: "Could not verify profile credentials."
                                         successMsg = null
+                                        android.widget.Toast.makeText(context, formError, android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
@@ -1327,6 +1332,85 @@ fun ReceiptDetailDialog(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+                
+                if (order.status.lowercase() == "delivered") {
+                    var showReviewSection by remember { mutableStateOf(false) }
+                    var rating by remember { mutableStateOf(5) }
+                    var comment by remember { mutableStateOf("") }
+                    var isReviewSubmitting by remember { mutableStateOf(false) }
+                    var reviewResMsg by remember { mutableStateOf<String?>(null) }
+                    val scope = rememberCoroutineScope()
+
+                    if (!showReviewSection) {
+                        OutlinedButton(
+                            onClick = { showReviewSection = true },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        ) {
+                            Icon(Icons.Default.Star, "Rate")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Rate & Review this Order")
+                        }
+                    } else {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.3f))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Rate your experience", fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                    repeat(5) { i ->
+                                        Icon(
+                                            Icons.Default.Star,
+                                            contentDescription = "Star",
+                                            tint = if (i < rating) MaterialTheme.colorScheme.primary else Color.Gray,
+                                            modifier = Modifier.size(32.dp).clickable { rating = i + 1 }
+                                        )
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = comment,
+                                    onValueChange = { comment = it },
+                                    label = { Text("Write your review") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 3
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                if (reviewResMsg != null) {
+                                    Text(reviewResMsg!!, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                Button(
+                                    onClick = {
+                                        isReviewSubmitting = true
+                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            try {
+                                                val req = com.example.network.ReviewRequest(orderId = order.id, productId = 0, rating = rating, comment = comment)
+                                                val res = com.example.network.RetrofitClient.apiService.submitReview(req)
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    if (res.isSuccessful && res.body()?.success == true) {
+                                                        reviewResMsg = "Review submitted successfully!"
+                                                    } else {
+                                                        reviewResMsg = "Failed to submit review."
+                                                    }
+                                                    isReviewSubmitting = false
+                                                }
+                                            } catch (e: Exception) {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    reviewResMsg = "Error connecting to server."
+                                                    isReviewSubmitting = false
+                                                }
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isReviewSubmitting
+                                ) {
+                                    if(isReviewSubmitting) CircularProgressIndicator(modifier=Modifier.size(20.dp)) else Text("Submit Review")
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Button(
                     onClick = onDismiss,

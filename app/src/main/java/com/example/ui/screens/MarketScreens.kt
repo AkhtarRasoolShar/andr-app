@@ -3456,22 +3456,31 @@ fun OrdersScreen(
         } else {
             var trackingQuery by remember { mutableStateOf("") }
             val displayOrders = if (trackingQuery.isBlank()) orders!! else orders!!.filter { it.id.contains(trackingQuery, ignoreCase = true) }
+            var selectedOrder by remember { mutableStateOf<com.example.data.Order?>(null) }
+            
+            selectedOrder?.let {
+                com.example.ui.screens.ReceiptDetailDialog(order = it, onDismiss = { selectedOrder = null })
+            }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
             ) {
-                OutlinedTextField(
-                    value = trackingQuery,
-                    onValueChange = { trackingQuery = it },
-                    placeholder = { Text("Track your order (e.g. SNOW-...)") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Tracking ID") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(24.dp)
-                )
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = trackingQuery,
+                        onValueChange = { trackingQuery = it },
+                        placeholder = { Text("Filter your local entries") },
+                        leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = "Filter") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { onNavigateToTab(6) }, modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape)) {
+                        Icon(Icons.Default.Search, "Track Server", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
 
                 LazyColumn(
                     modifier = Modifier
@@ -3482,7 +3491,7 @@ fun OrdersScreen(
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
                     items(displayOrders, key = { it.id }) { ord ->
-                        OrderHistoryCard(order = ord)
+                        OrderHistoryCard(order = ord, onClick = { selectedOrder = ord })
                     }
                 }
             }
@@ -3491,14 +3500,15 @@ fun OrdersScreen(
 }
 
 @Composable
-fun OrderHistoryCard(order: Order) {
+fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
     val formatter = remember { SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()) }
     val dateString = formatter.format(Date(order.timestamp))
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("order_card_${order.id}"),
+            .testTag("order_card_${order.id}")
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
         shape = RoundedCornerShape(16.dp)

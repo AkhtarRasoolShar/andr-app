@@ -77,6 +77,12 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         
          setContent {
+             val context = androidx.compose.ui.platform.LocalContext.current
+             androidx.compose.runtime.LaunchedEffect(Unit) {
+                 com.example.network.ApiErrorEvent.events.collect { errorMsg ->
+                     android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_LONG).show()
+                 }
+             }
              MyApplicationTheme(darkTheme = viewModel.darkModeEnabled) {
                  val sessionManager = remember { com.example.data.SessionManager(applicationContext) }
                   val sharedPrefs = remember {
@@ -232,6 +238,9 @@ class MainActivity : FragmentActivity() {
                             5 -> com.example.ui.screens.SupportChatScreen(
                                 viewModel = viewModel,
                                 onBack = { selectedTab = 0 }
+                            )
+                            6 -> com.example.ui.screens.TrackingScreen(
+                                onBack = { selectedTab = 3 }
                             )
                         }
                     }

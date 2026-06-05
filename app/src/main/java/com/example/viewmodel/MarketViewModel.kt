@@ -166,45 +166,48 @@ class MarketViewModel(
             }
         }
 
-        if (session == null || session.userId <= 0) {
-            return
-        }
-        
         viewModelScope.launch {
-            try {
-                val response = com.example.network.RetrofitClient.apiService.getMyOrders(session.userId)
-                if (response.isSuccessful && response.body()?.success == true) {
-                    val networkOrders = response.body()?.orders ?: emptyList()
-                    val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-                    
-                    // Fetch local orders once for comparison
-                    val currentLocalOrders = repository.allOrders.first()
-                    val currentMap = currentLocalOrders.associateBy { it.id }
+            while (true) {
+                try {
+                    val sessionManager = com.example.data.SessionManager(getApplication())
+                    val session = sessionManager.fetchSession()
+                    if (session != null && session.userId > 0) {
+                        val response = com.example.network.RetrofitClient.apiService.getMyOrders(session.userId)
+                        if (response.isSuccessful && response.body()?.success == true) {
+                            val networkOrders = response.body()?.orders ?: emptyList()
+                            val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                            
+                            // Fetch local orders once for comparison
+                            val currentLocalOrders = repository.allOrders.first()
+                            val currentMap = currentLocalOrders.associateBy { it.id }
 
-                    networkOrders.forEach { netOrder ->
-                        val existing = currentMap[netOrder.id]
-                        if (existing != null) {
-                            if (existing.status != netOrder.status) {
-                                repository.saveLocalOrder(existing.copy(status = netOrder.status))
+                            networkOrders.forEach { netOrder ->
+                                val existing = currentMap[netOrder.id]
+                                if (existing != null) {
+                                    if (existing.status != netOrder.status) {
+                                        repository.saveLocalOrder(existing.copy(status = netOrder.status))
+                                    }
+                                } else {
+                                    val parsedTime = try { format.parse(netOrder.createdAt)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                                    repository.saveLocalOrder(
+                                        com.example.data.Order(
+                                            id = netOrder.id,
+                                            timestamp = parsedTime,
+                                            itemsSummary = "Purchased Items",
+                                            totalAmount = netOrder.totalAmount,
+                                            status = netOrder.status,
+                                            paymentCardLast4 = "API",
+                                            shippingAddress = "Delivery Address"
+                                        )
+                                    )
+                                }
                             }
-                        } else {
-                            val parsedTime = try { format.parse(netOrder.createdAt)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
-                            repository.saveLocalOrder(
-                                com.example.data.Order(
-                                    id = netOrder.id,
-                                    timestamp = parsedTime,
-                                    itemsSummary = "Purchased Items",
-                                    totalAmount = netOrder.totalAmount,
-                                    status = netOrder.status,
-                                    paymentCardLast4 = "API",
-                                    shippingAddress = "Delivery Address"
-                                )
-                            )
                         }
                     }
+                } catch (e: Exception) {
+                    // Silently fail network error
                 }
-            } catch (e: Exception) {
-                // Silently fails, local flow still provides data
+                kotlinx.coroutines.delay(10000) // Poll every 10 seconds
             }
         }
     }

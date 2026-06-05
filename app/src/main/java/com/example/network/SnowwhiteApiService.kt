@@ -77,6 +77,18 @@ data class AddProductResponse(
     val message: String? = null
 )
 
+data class ReviewRequest(
+    @Json(name = "order_id") val orderId: String,
+    @Json(name = "product_id") val productId: Int,
+    val rating: Int,
+    val comment: String
+)
+
+data class ReviewResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
 data class UpdateProductRequest(
     val id: Int,
     val title: String,
@@ -250,8 +262,14 @@ interface SnowwhiteApi {
     @GET("get_orders.php")
     suspend fun getMyOrders(@retrofit2.http.Query("user_id") userId: Int): retrofit2.Response<OrderHistoryResponse>
 
+    @GET("get_orders.php")
+    suspend fun getOrderDetail(@retrofit2.http.Query("order_id") orderId: Int): retrofit2.Response<OrderHistoryResponse>
+
     @POST("update_product.php")
     suspend fun updateProduct(@Body request: UpdateProductRequest): UpdateProductResponse
+
+    @POST("submit_review.php")
+    suspend fun submitReview(@Body request: ReviewRequest): retrofit2.Response<ReviewResponse>
 
     @POST("delete_product.php")
     suspend fun deleteProduct(@Body request: DeleteProductRequest): DeleteProductResponse
@@ -264,6 +282,15 @@ interface SnowwhiteApi {
 
     @GET("get_settings.php")
     suspend fun getAppSettings(): retrofit2.Response<SettingsResponse>
+}
+
+object ApiErrorEvent {
+    private val _events = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val events: kotlinx.coroutines.flow.SharedFlow<String> = _events
+    
+    fun emit(message: String) {
+        _events.tryEmit(message)
+    }
 }
 
 object RetrofitClient {
@@ -286,12 +313,13 @@ object RetrofitClient {
         chain.proceed(request)
     }
 
-    private val errorLoggingInterceptor = okhttp3.Interceptor { chain ->
+    private val ErrorInterceptor = okhttp3.Interceptor { chain ->
         val request = chain.request()
         val response = chain.proceed(request)
         if (!response.isSuccessful) {
             val responseBody = response.peekBody(Long.MAX_VALUE).string()
             android.util.Log.e("API_ERROR", "Code: ${response.code}, URL: ${request.url}, Body: $responseBody")
+            ApiErrorEvent.emit("API Error: ${response.code} ${response.message}")
         }
         response
     }
@@ -299,7 +327,7 @@ object RetrofitClient {
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
         .addInterceptor(securityInterceptor)
-        .addInterceptor(errorLoggingInterceptor)
+        .addInterceptor(ErrorInterceptor)
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()

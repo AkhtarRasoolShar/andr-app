@@ -125,6 +125,11 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             val userRole = response.role ?: "customer"
             val returnedUser = response.user
             
+            val fetchedId = returnedUser.userId ?: returnedUser.id ?: 0
+            if (fetchedId == 0) {
+                throw Exception("Invalid user ID received from server.")
+            }
+            
             val isAdminRole = userRole.equals("admin", ignoreCase = true) || userRole.equals("super_admin", ignoreCase = true)
             val adminProfile = UserProfile(
                 email = returnedUser.email,
@@ -142,7 +147,6 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
             // Cache session in SessionManager & SharedPreferences
             try {
-                val fetchedId = returnedUser.userId ?: returnedUser.id ?: 1
                 val sessionManager = SessionManager(context)
                 sessionManager.saveSession(
                     userId = fetchedId,

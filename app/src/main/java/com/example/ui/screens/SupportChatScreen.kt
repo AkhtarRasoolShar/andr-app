@@ -17,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.viewmodel.MarketViewModel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Long = System.currentTimeMillis())
 
@@ -25,6 +28,7 @@ data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Lon
 fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
     var inputText by remember { mutableStateOf("") }
     val messages = remember { mutableStateListOf<ChatMessage>() }
+    val coroutineScope = rememberCoroutineScope()
 
     // Init welcome message purely client-side
     LaunchedEffect(Unit) {
@@ -92,27 +96,69 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                 // Bot logic
                                 val lower = userText.lowercase()
                                 val settings = viewModel.appSettingsMap
-                                val reply = when {
-                                    lower.contains("delivery") || lower.contains("shipping") ->
-                                        "Our flat delivery fee is ${settings["delivery_fee"] ?: "$5.00"}."
-                                    lower.contains("cod") || lower.contains("cash") ->
-                                        "Cash on delivery is currently ${settings["cod_enabled"] ?: "enabled"}."
+                                
+                                val orderIdMatch = Regex("(?:order(?: id)?[:\\s]*|SNOW-ORD-)(\\d+)", RegexOption.IGNORE_CASE).find(lower)
+                                if (orderIdMatch != null) {
+                                    val orderIdStr = orderIdMatch.groupValues[1]
+                                    try {
+                                        val orderId = orderIdStr.toInt()
+                                        messages.add(ChatMessage("Checking order tracking for $orderId...", false))
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            try {
+                                                val response = com.example.network.RetrofitClient.apiService.getOrderDetail(orderId)
+                                                val body = response.body()
+                                                val replyMsg = if (response.isSuccessful && body?.success == true && !body.orders.isNullOrEmpty()) {
+                                                    val order = body.orders.first()
+                                                    "Order $orderId status is: ${order.status}. Date: ${order.createdAt}. Total: $${order.totalAmount}."
+                                                } else {
+                                                    "Sorry, I could not find an order with ID $orderId."
+                                                }
+                                                // Switch to main to update ui state safely
+                                                withContext(Dispatchers.Main) {
+                                                    messages.add(ChatMessage(replyMsg, false))
+                                                }
+                                            } catch(e: Exception) {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    messages.add(ChatMessage("Sorry, an error occurred while looking up that order.", false))
+                                                }
+                                            }
+                                        }
+                                    } catch(e: Exception) {
+                                        messages.add(ChatMessage("That doesn't look like a valid order ID.", false))
+                                    }
+                                    return@IconButton
+                                }
+
+                                val keywordMap = mapOf(
+                                    listOf("delivery", "shipping") to "delivery_fee",
+                                    listOf("cod", "cash") to "cod_enabled",
+                                    listOf("hour", "time", "hours") to "working_hours",
+                                    listOf("location", "where", "branch", "locations") to "store_locations",
+                                    listOf("tip", "laundry", "wash", "tips") to "care_tips"
+                                )
+                                
+                                var matchedReply: String? = null
+                                for ((keywords, settingKey) in keywordMap) {
+                                    if (keywords.any { lower.contains(it) }) {
+                                        val settingValue = settings[settingKey]
+                                        if (!settingValue.isNullOrEmpty()) {
+                                            matchedReply = settingValue
+                                            break
+                                        }
+                                    }
+                                }
+
+                                val reply = matchedReply ?: when {
                                     lower.contains("status") || lower.contains("track") ->
-                                        "You can track your order status in the 'Orders' tab of your profile."
+                                        "You can track your order status in the 'Orders' tab of your profile. Or simply send me 'Order ID <number>'."
                                     lower.contains("order") ->
-                                        "To view your order details, check the 'Orders' section in your profile. You can see tracking, items, and status there."
+                                        "To view your order details, check the 'Orders' section in your profile. You can also send me 'Order ID <number>'."
                                     lower.contains("return") || lower.contains("refund") ->
                                         "We offer a 30-day return policy for unused items in their original packaging."
                                     lower.contains("payment") || lower.contains("card") ->
                                         "We accept COD, major credit cards, and digital wallets for your convenience."
                                     lower.contains("discount") || lower.contains("promo") ->
                                         "Keep an eye on our app for special promotions! Join the loyalty club for exclusive discounts."
-                                    lower.contains("hour") || lower.contains("time") ->
-                                        "Our working hours are ${settings["working_hours"] ?: "Monday to Saturday, 9 AM to 8 PM"}."
-                                    lower.contains("location") || lower.contains("where") || lower.contains("branch") ->
-                                        "We are located at ${settings["store_location"] ?: "multiple branches across the city"}. Check our app for the nearest outlet!"
-                                    lower.contains("tip") || lower.contains("laundry") || lower.contains("wash") ->
-                                        "Laundry Tip: Always separate your whites and colors, and wash delicate items in cold water to preserve their quality!"
                                     else ->
                                         "I am your virtual assistant! You can ask me about delivery fees, COD, returns, locations, working hours, order tracking, or call our support at ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
                                 }
