@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -122,6 +126,75 @@ fun TrackingScreen(onBack: () -> Unit) {
                         Text(text = "Total Amount: $${orderData!!.totalAmount}")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(text = "Date: ${orderData!!.createdAt}", style = MaterialTheme.typography.bodySmall)
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Mock Processing Stages (Laundry):", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val stages = listOf("Collected", "In Cleaning", "Quality Check", "Out for Delivery")
+                        val currentStageIdx = when (orderData!!.status.lowercase()) {
+                            "pending" -> 0
+                            "processing" -> 1
+                            "shipped" -> 3
+                            "delivered" -> 4
+                            else -> 0
+                        }
+                        stages.forEachIndexed { index, stage ->
+                            val isCompleted = index <= currentStageIdx
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                                Icon(
+                                    imageVector = if (isCompleted) androidx.compose.material.icons.Icons.Default.CheckCircle else androidx.compose.material.icons.Icons.Default.RadioButtonUnchecked,
+                                    contentDescription = stage,
+                                    tint = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stage,
+                                    color = if (isCompleted) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    fontWeight = if (isCompleted) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        var showContactSupport by remember { mutableStateOf(false) }
+                        
+                        OutlinedButton(
+                            onClick = { showContactSupport = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Contact Support")
+                        }
+                        
+                        if (showContactSupport) {
+                            AlertDialog(
+                                onDismissRequest = { showContactSupport = false },
+                                title = { Text("Contact Customer Support") },
+                                text = {
+                                    Column {
+                                        Text("Need help with this order? We're here 24/7.")
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(androidx.compose.material.icons.Icons.Default.Phone, contentDescription = "Phone")
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("1-800-SNOW-WHT", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        }
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(onClick = { /* Live chat logic */ showContactSupport = false }, modifier = Modifier.fillMaxWidth()) {
+                                            Icon(androidx.compose.material.icons.Icons.Default.Chat, contentDescription = "Live Chat")
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Start Live Chat")
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { showContactSupport = false }) {
+                                        Text("Close")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

@@ -811,6 +811,9 @@ fun MainCatalogScreen(
         AutoScrollingCarousel(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+        
+        PromotionalHeader()
+        ServiceSelectionCards()
 
         // Category Selection Stepper/Scrollable chips
         val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
@@ -1598,6 +1601,62 @@ fun CartScreen(
                     }
 
                     // Financial Tallies receipt
+                    
+                    var fabricCareInstructions by remember { mutableStateOf("") }
+                    val timeSlots = listOf("08:00 AM - 10:00 AM", "12:00 PM - 02:00 PM", "04:00 PM - 06:00 PM")
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "LAUNDRY PICK-UP SCHEDULE",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            OutlinedTextField(
+                                value = selectedPickupDate,
+                                onValueChange = { selectedPickupDate = it },
+                                label = { Text("Pick-up Date (e.g. YYYY-MM-DD)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Text("Preferred Time Slot", style = MaterialTheme.typography.bodySmall)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                timeSlots.forEach { slot ->
+                                    FilterChip(
+                                        selected = selectedPickupSlot == slot,
+                                        onClick = { selectedPickupSlot = slot },
+                                        label = { Text(slot) }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            OutlinedTextField(
+                                value = fabricCareInstructions,
+                                onValueChange = { fabricCareInstructions = it },
+                                label = { Text("Special fabric care instructions") },
+                                modifier = Modifier.fillMaxWidth().height(80.dp),
+                                maxLines = 3
+                            )
+                        }
+                    }
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -2722,6 +2781,37 @@ fun AdminInventoryScreen(
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+        
+        val adminOrders by viewModel.adminAllOrdersState.collectAsState()
+        val formattedChartData = remember(adminOrders) {
+            val data = mutableMapOf<String, Pair<Int, Double>>()
+            val format = java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault())
+            val now = System.currentTimeMillis()
+            val dayMillis = 24L * 60 * 60 * 1000
+            for (i in 6 downTo 0) {
+                val dateStr = format.format(java.util.Date(now - i * dayMillis))
+                data[dateStr] = Pair(0, 0.0)
+            }
+            
+            val fullTimeFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+            adminOrders?.forEach { ord ->
+                try {
+                    val date = fullTimeFormat.parse(ord.createdAt)
+                    if (date != null) {
+                        val dStr = format.format(date)
+                        if (data.containsKey(dStr)) {
+                            val current = data[dStr]!!
+                            data[dStr] = Pair(current.first + 1, current.second + ord.totalAmount)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+            data.toList()
+        }
+        
+        AdminDashboardChart(data = formattedChartData, modifier = Modifier.padding(horizontal = 16.dp))
+        
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Large list of products admin controls
         LazyColumn(
@@ -3799,6 +3889,151 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
             ) {
                 Text("View Details", fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Composable
+fun AdminDashboardChart(
+    data: List<Pair<String, Pair<Int, Double>>>,
+    modifier: Modifier = Modifier
+) {
+    if (data.isEmpty()) return
+    
+    val maxRevenue = data.maxOfOrNull { it.second.second }?.toFloat() ?: 0f
+    val maxVolume = data.maxOfOrNull { it.second.first }?.toFloat() ?: 0f
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "7-Day Revenue & Volume Overview",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val secondaryColor = MaterialTheme.colorScheme.tertiary
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(12.dp).background(primaryColor, androidx.compose.foundation.shape.CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Revenue ($)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(12.dp).background(secondaryColor, androidx.compose.foundation.shape.CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Orders", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                val width = size.width
+                val height = size.height
+                val usableHeight = height - 30f // Reserve space for text
+                
+                val barWidth = width / (data.size * 2f)
+                val spacing = barWidth
+                
+                data.forEachIndexed { index, pair ->
+                    val dateStr = pair.first
+                    val stats = pair.second
+                    
+                    val revHeight = if (maxRevenue > 0) (stats.second.toFloat() / maxRevenue) * usableHeight else 0f
+                    val volHeight = if (maxVolume > 0) (stats.first.toFloat() / maxVolume) * usableHeight else 0f
+                    
+                    val xPos = index * (barWidth * 2) + (spacing/2)
+                    
+                    // Draw Revenue Bar
+                    drawRect(
+                        color = primaryColor,
+                        topLeft = androidx.compose.ui.geometry.Offset(x = xPos, y = usableHeight - revHeight),
+                        size = androidx.compose.ui.geometry.Size(width = barWidth * 0.8f, height = revHeight)
+                    )
+                    
+                    // Draw Volume Bar
+                    drawRect(
+                        color = secondaryColor,
+                        topLeft = androidx.compose.ui.geometry.Offset(x = xPos + barWidth * 0.8f, y = usableHeight - volHeight),
+                        size = androidx.compose.ui.geometry.Size(width = barWidth * 0.8f, height = volHeight)
+                    )
+                    
+                    // Draw Label X-Axis
+                    drawContext.canvas.nativeCanvas.drawText(
+                        dateStr,
+                        xPos + barWidth*0.8f,
+                        height,
+                        android.graphics.Paint().apply {
+                            color = android.graphics.Color.GRAY
+                            textSize = 24f
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PromotionalHeader() {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "✨ First-Time User Offer!",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Get 20% off your first laundry or dry cleaning order. Use code: SNOW20",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+fun ServiceSelectionCards() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ServiceCard("Dry Cleaning", "From $5.00/item", Icons.Default.Checkroom)
+        ServiceCard("Laundry", "From $2.50/lb", Icons.Default.LocalLaundryService)
+        ServiceCard("Carpet Restoration", "From $25.00/sqft", Icons.Default.CleaningServices)
+    }
+}
+
+@Composable
+fun ServiceCard(title: String, priceText: String, icon: ImageVector) {
+    Card(
+        modifier = Modifier.width(140.dp).height(120.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp).fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = priceText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

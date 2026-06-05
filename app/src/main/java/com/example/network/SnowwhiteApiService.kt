@@ -278,6 +278,9 @@ interface SnowwhiteApi {
     @GET("get_orders.php")
     suspend fun getOrderDetail(@retrofit2.http.Query("order_id") orderId: Int): retrofit2.Response<OrderHistoryResponse>
 
+    @GET("get_orders.php")
+    suspend fun getAllOrders(): retrofit2.Response<OrderHistoryResponse>
+
     @POST("update_product.php")
     suspend fun updateProduct(@Body request: UpdateProductRequest): UpdateProductResponse
 

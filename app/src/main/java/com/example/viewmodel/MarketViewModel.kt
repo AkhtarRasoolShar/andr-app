@@ -155,6 +155,25 @@ class MarketViewModel(
     private val _ordersState = MutableStateFlow<List<Order>?>(null)
     val ordersState: StateFlow<List<Order>?> = _ordersState.asStateFlow()
 
+    private val _adminAllOrdersState = MutableStateFlow<List<com.example.network.NetworkOrder>?>(null)
+    val adminAllOrdersState: StateFlow<List<com.example.network.NetworkOrder>?> = _adminAllOrdersState.asStateFlow()
+
+    fun loadAdminAllOrders() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    val res = com.example.network.RetrofitClient.apiService.getAllOrders()
+                    if (res.isSuccessful && res.body()?.success == true) {
+                        _adminAllOrdersState.value = res.body()?.orders
+                    }
+                } catch (e: Exception) {
+                    // silently fail
+                }
+                kotlinx.coroutines.delay(30000)
+            }
+        }
+    }
+
     fun loadOrders() {
         val sessionManager = com.example.data.SessionManager(getApplication())
         val session = sessionManager.fetchSession()
@@ -321,6 +340,7 @@ class MarketViewModel(
         loadProductsFromApi()
         loadAppSettings()
         loadOrders()
+        loadAdminAllOrders()
         
         // Silently log visitor
         viewModelScope.launch {
