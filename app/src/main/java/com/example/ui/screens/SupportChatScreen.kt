@@ -97,8 +97,24 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                         "Our flat delivery fee is ${settings["delivery_fee"] ?: "$5.00"}."
                                     lower.contains("cod") || lower.contains("cash") ->
                                         "Cash on delivery is currently ${settings["cod_enabled"] ?: "enabled"}."
+                                    lower.contains("status") || lower.contains("track") ->
+                                        "You can track your order status in the 'Orders' tab of your profile."
+                                    lower.contains("order") ->
+                                        "To view your order details, check the 'Orders' section in your profile. You can see tracking, items, and status there."
+                                    lower.contains("return") || lower.contains("refund") ->
+                                        "We offer a 30-day return policy for unused items in their original packaging."
+                                    lower.contains("payment") || lower.contains("card") ->
+                                        "We accept COD, major credit cards, and digital wallets for your convenience."
+                                    lower.contains("discount") || lower.contains("promo") ->
+                                        "Keep an eye on our app for special promotions! Join the loyalty club for exclusive discounts."
+                                    lower.contains("hour") || lower.contains("time") ->
+                                        "Our working hours are ${settings["working_hours"] ?: "Monday to Saturday, 9 AM to 8 PM"}."
+                                    lower.contains("location") || lower.contains("where") || lower.contains("branch") ->
+                                        "We are located at ${settings["store_location"] ?: "multiple branches across the city"}. Check our app for the nearest outlet!"
+                                    lower.contains("tip") || lower.contains("laundry") || lower.contains("wash") ->
+                                        "Laundry Tip: Always separate your whites and colors, and wash delicate items in cold water to preserve their quality!"
                                     else ->
-                                        "I am your virtual assistant! You can ask me about delivery fees, COD, or call our support at ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
+                                        "I am your virtual assistant! You can ask me about delivery fees, COD, returns, locations, working hours, order tracking, or call our support at ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
                                 }
                                 messages.add(ChatMessage(reply, false))
                             }

@@ -286,9 +286,20 @@ object RetrofitClient {
         chain.proceed(request)
     }
 
+    private val errorLoggingInterceptor = okhttp3.Interceptor { chain ->
+        val request = chain.request()
+        val response = chain.proceed(request)
+        if (!response.isSuccessful) {
+            val responseBody = response.peekBody(Long.MAX_VALUE).string()
+            android.util.Log.e("API_ERROR", "Code: ${response.code}, URL: ${request.url}, Body: $responseBody")
+        }
+        response
+    }
+
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
         .addInterceptor(securityInterceptor)
+        .addInterceptor(errorLoggingInterceptor)
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
