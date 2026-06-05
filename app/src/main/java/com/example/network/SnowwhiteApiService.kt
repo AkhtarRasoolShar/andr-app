@@ -14,20 +14,33 @@ import java.util.concurrent.TimeUnit
 
 data class LoginRequest(
     val email: String,
-    val passwordEntered: String
+    @Json(name = "password") val passwordEntered: String
 )
 
 data class UserProfileResponse(
     val email: String,
-    val fullName: String,
-    val phoneNumber: String,
-    val city: String,
-    val deliveryAddress: String,
-    val membershipPoints: Int = 100,
+    val name: String? = null,
+    @Json(name = "full_name") val fullNameFallback: String? = null,
+    @Json(name = "phone_number") val phoneNumber: String? = null,
+    val phone: String? = null,
+    val city: String? = null,
+    @Json(name = "delivery_address") val deliveryAddress: String? = null,
+    val address: String? = null,
+    @Json(name = "membership_points") val membershipPoints: Int = 100,
     val role: String = "customer",
     @Json(name = "user_id") val userId: Int? = null,
     @Json(name = "id") val id: Int? = null
 )
+{
+    val fullName: String
+        get() = name ?: fullNameFallback ?: ""
+        
+    val derivedPhone: String
+        get() = phoneNumber ?: phone ?: ""
+        
+    val derivedAddress: String
+        get() = deliveryAddress ?: address ?: ""
+}
 
 data class LoginResponse(
     val success: Boolean,
@@ -38,11 +51,11 @@ data class LoginResponse(
 
 data class RegisterRequest(
     val email: String,
-    val fullName: String,
-    val passwordEntered: String,
-    val phoneNumber: String,
+    val name: String,
+    @Json(name = "password") val passwordEntered: String,
+    @Json(name = "phone_number") val phoneNumber: String,
     val city: String,
-    val deliveryAddress: String
+    @Json(name = "delivery_address") val deliveryAddress: String
 )
 
 data class RegisterResponse(

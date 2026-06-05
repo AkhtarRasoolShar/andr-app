@@ -3367,6 +3367,10 @@ fun OrdersScreen(
 ) {
     val orders by viewModel.ordersState.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadOrders()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

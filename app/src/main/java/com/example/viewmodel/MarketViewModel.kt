@@ -159,43 +159,52 @@ class MarketViewModel(
         val sessionManager = com.example.data.SessionManager(getApplication())
         val session = sessionManager.fetchSession()
         
-        if (session == null || session.userId <= 0) {
-            viewModelScope.launch {
-                repository.allOrders.collect { localList ->
-                    _ordersState.value = localList
-                }
+        // Start collecting local orders continuously so the UI always reflects the database
+        viewModelScope.launch {
+            repository.allOrders.collect { localList ->
+                _ordersState.value = localList
             }
+        }
+
+        if (session == null || session.userId <= 0) {
             return
         }
         
         viewModelScope.launch {
             try {
-                // First gather local orders so they aren't lost immediately
-                var localAndNetworkOrders: MutableList<com.example.data.Order> = mutableListOf()
-                
                 val response = com.example.network.RetrofitClient.apiService.getMyOrders(session.userId)
                 if (response.isSuccessful && response.body()?.success == true) {
                     val networkOrders = response.body()?.orders ?: emptyList()
-                    val orderList = networkOrders.map {
-                        // Assuming string format from API is easily parseable, or just fake timestamp
-                        com.example.data.Order(
-                            id = it.id,
-                            timestamp = System.currentTimeMillis(), // placeholder or parse it.createdAt
-                            itemsSummary = "Purchased Items",
-                            totalAmount = it.totalAmount,
-                            status = it.status,
-                            paymentCardLast4 = "API",
-                            shippingAddress = "Delivery Address" // placeholder for local UI requirement
-                        )
+                    val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                    
+                    // Fetch local orders once for comparison
+                    val currentLocalOrders = repository.allOrders.first()
+                    val currentMap = currentLocalOrders.associateBy { it.id }
+
+                    networkOrders.forEach { netOrder ->
+                        val existing = currentMap[netOrder.id]
+                        if (existing != null) {
+                            if (existing.status != netOrder.status) {
+                                repository.saveLocalOrder(existing.copy(status = netOrder.status))
+                            }
+                        } else {
+                            val parsedTime = try { format.parse(netOrder.createdAt)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+                            repository.saveLocalOrder(
+                                com.example.data.Order(
+                                    id = netOrder.id,
+                                    timestamp = parsedTime,
+                                    itemsSummary = "Purchased Items",
+                                    totalAmount = netOrder.totalAmount,
+                                    status = netOrder.status,
+                                    paymentCardLast4 = "API",
+                                    shippingAddress = "Delivery Address"
+                                )
+                            )
+                        }
                     }
-                    localAndNetworkOrders.addAll(orderList)
                 }
-                
-                _ordersState.value = localAndNetworkOrders
             } catch (e: Exception) {
-                repository.allOrders.collect { localList ->
-                    _ordersState.value = localList
-                }
+                // Silently fails, local flow still provides data
             }
         }
     }
@@ -308,6 +317,7 @@ class MarketViewModel(
     init {
         loadProductsFromApi()
         loadAppSettings()
+        loadOrders()
         
         // Silently log visitor
         viewModelScope.launch {

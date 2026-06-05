@@ -96,7 +96,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         val response = com.example.network.RetrofitClient.apiService.registerUser(
             com.example.network.RegisterRequest(
                 email = profile.email,
-                fullName = profile.fullName,
+                name = profile.fullName,
                 passwordEntered = passwordEntered,
                 phoneNumber = profile.phoneNumber,
                 city = profile.city,
@@ -129,9 +129,9 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             val adminProfile = UserProfile(
                 email = returnedUser.email,
                 fullName = returnedUser.fullName,
-                phoneNumber = returnedUser.phoneNumber,
-                city = returnedUser.city,
-                deliveryAddress = returnedUser.deliveryAddress,
+                phoneNumber = returnedUser.derivedPhone,
+                city = returnedUser.city ?: "Unknown",
+                deliveryAddress = returnedUser.derivedAddress,
                 membershipPoints = returnedUser.membershipPoints,
                 isLoggedIn = true,
                 isAdmin = isAdminRole,
