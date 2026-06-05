@@ -92,7 +92,7 @@ class MainActivity : FragmentActivity() {
                      val cachedId = sessionManager.fetchSession()?.email
                      val cachedRole = sharedPrefs.getString("role", null)
                      if (cachedId != null) {
-                         if ((sessionManager.fetchSession()?.role.equals("admin", ignoreCase = true) || sessionManager.fetchSession()?.role.equals("super_admin", ignoreCase = true))) 2 else 0
+                         if ((sessionManager.fetchSession()?.role.equals("admin", ignoreCase = true) || sessionManager.fetchSession()?.role.equals("super_admin", ignoreCase = true))) 11 else 0
                      } else {
                          0 // Start on Home Page (Products)
                      }
@@ -111,7 +111,7 @@ class MainActivity : FragmentActivity() {
                  }
 
                  LaunchedEffect(loggedInUser) {
-                     if (loggedInUser?.isAdmin != true && selectedTab == 2) {
+                     if (loggedInUser?.isAdmin != true && selectedTab >= 10) {
                          selectedTab = 0
                      }
                  }

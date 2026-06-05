@@ -218,7 +218,11 @@ fun ProfileScreen(
                                                         if (sessionManager.isBiometricEnabled()) {
                                                             sessionManager.cacheSecureSession(emailVal, fullNameVal, "customer")
                                                         }
-                                                        onNavigateToTab(0)
+                                                        if (viewModel.loggedInUser.value?.isAdmin == true) {
+                                                            onNavigateToTab(11)
+                                                        } else {
+                                                            onNavigateToTab(0)
+                                                        }
                                                     } else {
                                                         formError = errMsg
                                                         successMsg = null
@@ -234,7 +238,11 @@ fun ProfileScreen(
                                                             val uname = emailVal.substringBefore("@")
                                                             sessionManager.cacheSecureSession(emailVal, uname, "customer")
                                                         }
-                                                        onNavigateToTab(0)
+                                                        if (viewModel.loggedInUser.value?.isAdmin == true) {
+                                                            onNavigateToTab(11)
+                                                        } else {
+                                                            onNavigateToTab(0)
+                                                        }
                                                     } else {
                                                         formError = errMsg ?: "Could not verify profile credentials."
                                                         successMsg = null
@@ -403,7 +411,11 @@ fun ProfileScreen(
                                         if (sessionManager.isBiometricEnabled()) {
                                             sessionManager.cacheSecureSession(emailVal, fullNameVal, "customer")
                                         }
-                                        onNavigateToTab(0)
+                                        if (viewModel.loggedInUser.value?.isAdmin == true) {
+                                            onNavigateToTab(11)
+                                        } else {
+                                            onNavigateToTab(0)
+                                        }
                                     } else {
                                         formError = errMsg
                                         successMsg = null
@@ -419,7 +431,11 @@ fun ProfileScreen(
                                             val uname = emailVal.substringBefore("@")
                                             sessionManager.cacheSecureSession(emailVal, uname, "customer")
                                         }
-                                        onNavigateToTab(0)
+                                        if (viewModel.loggedInUser.value?.isAdmin == true) {
+                                            onNavigateToTab(11)
+                                        } else {
+                                            onNavigateToTab(0)
+                                        }
                                     } else {
                                         formError = errMsg ?: "Could not verify profile credentials."
                                         successMsg = null
@@ -1208,8 +1224,34 @@ fun UserProfileCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (user.isAdmin) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { onNavigateToTab(10) }, // Admin tab or panel
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .testTag("admin_dashboard_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF009688)), // Match brand color
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Admin icon",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Open Admin Dashboard",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
 
+            Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onLogout,
                 modifier = Modifier

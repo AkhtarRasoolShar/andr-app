@@ -369,7 +369,10 @@ object RetrofitClient {
                 in 400..499 -> "Invalid request or credentials. (Error ${response.code})"
                 else -> "API Error: ${response.code} ${response.message}"
             }
-            ApiErrorEvent.emit(userFriendlyMessage)
+            val urlString = request.url.toString()
+            if (!urlString.contains("log_visitor.php") && !urlString.contains("get_settings.php")) {
+                ApiErrorEvent.emit(userFriendlyMessage)
+            }
         }
         response
     }

@@ -645,6 +645,7 @@ fun MainCatalogScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val cartSummary by viewModel.cartSummary.collectAsState()
     val loggedInUser by viewModel.loggedInUser.collectAsState()
+    val apiState by viewModel.apiState.collectAsState()
 
     var activeProductForDetail by remember { mutableStateOf<Product?>(null) }
     var isWishlistOpen by remember { mutableStateOf(false) }
@@ -697,328 +698,357 @@ fun MainCatalogScreen(
     }
     
     var showContactSupport by remember { mutableStateOf(false) }
+    var showAllProducts by remember { mutableStateOf(false) }
+
+    if (showAllProducts) {
+        AllProductsScreen(
+            viewModel = viewModel,
+            onBack = { showAllProducts = false },
+            onProductClick = { activeProductForDetail = it }
+        )
+        activeProductForDetail?.let { pd ->
+            ProductDetailModal(
+                product = pd,
+                viewModel = viewModel,
+                onDismiss = { activeProductForDetail = null }
+            )
+        }
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Welcome and Headline Block
-            Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(top = 48.dp, bottom = 16.dp, start = 20.dp, end = 20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    coil.compose.AsyncImage(
-                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                            .data("https://img.icons8.com/color/48/000000/online-store.png")
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "SnowWhite Brand Logo",
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Column {
+                    // Welcome and Headline Block
+                    Column(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "SnowWhite",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin") {
-                        Box {
-                            IconButton(onClick = { showAdminCategoryMenu = true }) {
-                                Icon(Icons.Default.MoreVert, "Admin Menu")
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(top = 48.dp, bottom = 16.dp, start = 20.dp, end = 20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                coil.compose.AsyncImage(
+                                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                        .data("https://img.icons8.com/color/48/000000/online-store.png")
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "SnowWhite Brand Logo",
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .border(1.dp, MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "SnowWhite",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                            DropdownMenu(
-                                expanded = showAdminCategoryMenu,
-                                onDismissRequest = { showAdminCategoryMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Manage Categories") },
-                                    onClick = {
-                                        showAdminCategoryMenu = false
-                                        android.widget.Toast.makeText(context, "Category Manager coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin") {
+                                    Box {
+                                        IconButton(onClick = { showAdminCategoryMenu = true }) {
+                                            Icon(Icons.Default.MoreVert, "Admin Menu")
+                                        }
+                                        DropdownMenu(
+                                            expanded = showAdminCategoryMenu,
+                                            onDismissRequest = { showAdminCategoryMenu = false }
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Manage Categories") },
+                                                onClick = {
+                                                    showAdminCategoryMenu = false
+                                                    android.widget.Toast.makeText(context, "Category Manager coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
                                     }
+                                }
+
+                                IconButton(
+                                    onClick = { isWishlistOpen = true },
+                                    modifier = Modifier.testTag("nav_wishlist_badge")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = "Wishlist",
+                                        tint = Color(0xFFE91E63)
+                                    )
+                                }
+                                val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
+                                BadgedBox(
+                                    badge = {
+                                        if (qtyCount > 0) {
+                                            Badge(
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                            ) {
+                                                Text(text = "$qtyCount")
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    IconButton(
+                                        onClick = { onNavigateToTab(1) }, // Navigate to Cart
+                                        modifier = Modifier.testTag("nav_cart_badge")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ShoppingCart,
+                                            contentDescription = "Active Shopping Cart",
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Modern Search Field with cancel controls
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.updateSearchQuery(it) },
+                            placeholder = { Text("Find pottery, blankets, silvers...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                            leadingIcon = { Icon(Icons.Default.Search, "Search icon", tint = MaterialTheme.colorScheme.primary) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.updateSearchQuery("") },
+                                        modifier = Modifier.testTag("clear_search_btn")
+                                    ) {
+                                        Icon(Icons.Default.Clear, "Clear trigger", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = { startVoiceSearch() },
+                                        modifier = Modifier.testTag("voice_search_btn")
+                                    ) {
+                                        Icon(Icons.Default.Mic, "Voice search microphone logo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("catalog_search_bar"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.background,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            ),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                        )
+                    }
+
+                    AutoScrollingCarousel(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    
+                    PromoHeader()
+                    ServiceCatalog()
+
+                    // Category Selection Stepper/Scrollable chips
+                    val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categories.forEach { cat ->
+                            val isSelected = selectedCat.lowercase() == cat.lowercase()
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { 
+                                    viewModel.selectCategory(cat)
+                                    focusManager.clearFocus()
+                                },
+                                shape = RoundedCornerShape(50),
+                                label = { 
+                                    Text(
+                                        text = when(cat) {
+                                            "All" -> "✨ All Services"
+                                            "Dry Cleaning" -> "👔 Dry Cleaning"
+                                            "Laundry" -> "🧺 Laundry"
+                                            "Carpet & Rugs" -> "🧹 Carpet & Rugs"
+                                            "Specialized" -> "🧥 Specialized"
+                                            else -> cat
+                                        },
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ) 
+                                },
+                                modifier = Modifier.testTag("category_chip_$cat"),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = MaterialTheme.colorScheme.outline
+                                )
+                            )
+                        }
+                    }
+
+                    // Live Promo Banner
+                    if (!viewModel.appBannerUrl.isNullOrEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = viewModel.appBannerUrl,
+                                contentDescription = "Promotional Banner",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Featured Products", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = { showAllProducts = true }) {
+                            Text("View All")
+                        }
+                    }
+                }
+            }
+
+            // Main listings viewport
+            when {
+                apiState is ApiProductState.Loading && products.isEmpty() -> {
+                    items(6, span = { androidx.compose.foundation.lazy.grid.GridItemSpan(1) }) {
+                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                            ShimmerProductCard()
+                        }
+                    }
+                }
+                apiState is ApiProductState.Error && products.isEmpty() -> {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudOff,
+                                    contentDescription = "Connection error",
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Unable to connect to backend",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = (apiState as ApiProductState.Error).message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { viewModel.loadProductsFromApi() },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Retry Connection")
+                                }
+                            }
+                        }
+                    }
+                }
+                products.isEmpty() -> {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.SearchOff,
+                                    contentDescription = "Nothing found",
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "No goods matched search criteria.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Try clearing queries or changing category tabs.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                                 )
                             }
                         }
                     }
-
-                    IconButton(
-                        onClick = { isWishlistOpen = true },
-                        modifier = Modifier.testTag("nav_wishlist_badge")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Favorite,
-                            contentDescription = "Wishlist",
-                            tint = Color(0xFFE91E63)
-                        )
+                }
+                else -> {
+                    items(products.take(4), key = { it.id }) { item -> // Show top 4 in the featured list
+                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                            ProductListingCard(
+                                product = item,
+                                viewModel = viewModel,
+                                onClick = { activeProductForDetail = item },
+                                onQuickAdd = { viewModel.addToCart(item) }
+                            )
+                        }
                     }
-                    val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
-                    BadgedBox(
-                    badge = {
-                        if (qtyCount > 0) {
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ) {
-                                Text(text = "$qtyCount")
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Button(onClick = { showAllProducts = true }) {
+                                Text("Explore All Products")
                             }
                         }
                     }
-                ) {
-                    IconButton(
-                        onClick = { onNavigateToTab(1) }, // Navigate to Cart
-                        modifier = Modifier.testTag("nav_cart_badge")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Active Shopping Cart",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Modern Search Field with cancel controls
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Find pottery, blankets, silvers...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                leadingIcon = { Icon(Icons.Default.Search, "Search icon", tint = MaterialTheme.colorScheme.primary) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.updateSearchQuery("") },
-                            modifier = Modifier.testTag("clear_search_btn")
-                        ) {
-                            Icon(Icons.Default.Clear, "Clear trigger", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else {
-                        IconButton(
-                            onClick = { startVoiceSearch() },
-                            modifier = Modifier.testTag("voice_search_btn")
-                        ) {
-                            Icon(Icons.Default.Mic, "Voice search microphone logo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("catalog_search_bar"),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                ),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-            )
-        }
-
-        AutoScrollingCarousel(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        
-        PromoHeader()
-        ServiceCatalog()
-
-        // Category Selection Stepper/Scrollable chips
-        val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            categories.forEach { cat ->
-                val isSelected = selectedCat.lowercase() == cat.lowercase()
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { 
-                        viewModel.selectCategory(cat)
-                        focusManager.clearFocus()
-                    },
-                    shape = RoundedCornerShape(50),
-                    label = { 
-                        Text(
-                            text = when(cat) {
-                                "All" -> "✨ All Services"
-                                "Dry Cleaning" -> "👔 Dry Cleaning"
-                                "Laundry" -> "🧺 Laundry"
-                                "Carpet & Rugs" -> "🧹 Carpet & Rugs"
-                                "Specialized" -> "🧥 Specialized"
-                                else -> cat
-                            },
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        ) 
-                    },
-                    modifier = Modifier.testTag("category_chip_$cat"),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        labelColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = MaterialTheme.colorScheme.outline
-                    )
-                )
-            }
-        }
-
-        // Live Promo Banner
-        if (!viewModel.appBannerUrl.isNullOrEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                coil.compose.AsyncImage(
-                    model = viewModel.appBannerUrl,
-                    contentDescription = "Promotional Banner",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                )
-            }
-        }
-
-        // Main listings viewport
-        val apiState by viewModel.apiState.collectAsState()
-
-        when {
-            apiState is ApiProductState.Loading && products.isEmpty() -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(6) {
-                        ShimmerProductCard()
-                    }
-                }
-            }
-            apiState is ApiProductState.Error && products.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.CloudOff,
-                            contentDescription = "Connection error",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Unable to connect to backend",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = (apiState as ApiProductState.Error).message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.loadProductsFromApi() },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Retry Connection")
-                        }
-                    }
-                }
-            }
-            products.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.SearchOff,
-                            contentDescription = "Nothing found",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No goods matched search criteria.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Try clearing queries or changing category tabs.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-            }
-            else -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(bottom = 24.dp, start = 16.dp, end = 16.dp, top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("product_grid")
-                ) {
-                    items(products, key = { it.id }) { item ->
-                        ProductListingCard(
-                            product = item,
-                            viewModel = viewModel,
-                            onClick = { activeProductForDetail = item },
-                            onQuickAdd = { viewModel.addToCart(item) }
-                        )
-                    }
                 }
             }
         }
-    }
 
     // Modal popup detail inspection
     activeProductForDetail?.let { pd ->
@@ -4415,6 +4445,62 @@ fun PickupScheduler(
                 modifier = Modifier.fillMaxWidth().height(80.dp),
                 maxLines = 3
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AllProductsScreen(
+    viewModel: MarketViewModel,
+    onBack: () -> Unit,
+    onProductClick: (Product) -> Unit
+) {
+    val products by viewModel.productsState.collectAsState()
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("All Products", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        if (products.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No products available", style = MaterialTheme.typography.bodyLarge)
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(
+                    bottom = 24.dp,
+                    start = 16.dp, 
+                    end = 16.dp, 
+                    top = padding.calculateTopPadding() + 8.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(products, key = { it.id }) { item ->
+                    ProductListingCard(
+                        product = item,
+                        viewModel = viewModel,
+                        onClick = { onProductClick(item) },
+                        onQuickAdd = { viewModel.addToCart(item) }
+                    )
+                }
+            }
         }
     }
 }
