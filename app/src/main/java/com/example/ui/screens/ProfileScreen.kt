@@ -46,6 +46,10 @@ fun ProfileScreen(
     var isCreatingState by remember { mutableStateOf(false) } // toggle between login & sign-up forms
 
     // Input States
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var forgotPasswordEmail by remember { mutableStateOf("") }
+    var forgotPasswordResult by remember { mutableStateOf<String?>(null) }
+    
     var fullNameVal by remember { mutableStateOf("") }
     var emailVal by remember { mutableStateOf("") }
     var phoneVal by remember { mutableStateOf("") }
@@ -403,6 +407,25 @@ fun ProfileScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+                    
+                    if (!isCreatingState) {
+                        TextButton(
+                            onClick = {
+                                showForgotPasswordDialog = true
+                                forgotPasswordEmail = emailVal
+                                forgotPasswordResult = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Forgot Password?",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
 
                     if (!isCreatingState && sessionManager.isBiometricEnabled() && sessionManager.getCachedEmail() != null) {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -424,6 +447,49 @@ fun ProfileScreen(
                     }
                 }
             }
+        }
+        
+        if (showForgotPasswordDialog) {
+            AlertDialog(
+                onDismissRequest = { showForgotPasswordDialog = false },
+                title = { Text("Reset Password") },
+                text = {
+                    Column {
+                        Text("Enter your email address to receive a password reset link.")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = forgotPasswordEmail,
+                            onValueChange = { forgotPasswordEmail = it },
+                            label = { Text("Email") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (forgotPasswordResult != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(forgotPasswordResult!!, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (forgotPasswordEmail.isNotBlank()) {
+                            viewModel.forgotPassword(forgotPasswordEmail) { success, msg ->
+                                forgotPasswordResult = msg
+                                if (success) {
+                                    android.widget.Toast.makeText(context, "Reset instructions sent.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }) {
+                        Text("Reset")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showForgotPasswordDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
 
         // Section: Store Settings & Branch Locations in Pakistan

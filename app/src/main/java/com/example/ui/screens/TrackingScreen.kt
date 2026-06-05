@@ -28,7 +28,7 @@ fun TrackingScreen(onBack: () -> Unit) {
     LaunchedEffect(orderData?.id) {
         if (orderData?.id != null) {
             while(true) {
-                kotlinx.coroutines.delay(10000)
+                kotlinx.coroutines.delay(30000)
                 try {
                     val orderIdInt = orderData!!.id.replace(Regex("[^0-9]"), "").toIntOrNull()
                     if (orderIdInt != null) {

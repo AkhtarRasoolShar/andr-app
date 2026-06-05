@@ -410,6 +410,21 @@ class MarketViewModel(
         }
     }
 
+    fun forgotPassword(email: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = com.example.network.RetrofitClient.apiService.forgotPassword(com.example.network.ForgotPasswordRequest(email))
+                if (response.isSuccessful && response.body()?.success == true) {
+                    onResult(true, response.body()?.message ?: "Password reset instructions sent.")
+                } else {
+                    onResult(false, response.body()?.message ?: "Failed to reset password.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Network error.")
+            }
+        }
+    }
+
     private fun fetchAndUploadFcmToken() {
         val sessionMgr = com.example.data.SessionManager(getApplication())
         val userId = sessionMgr.fetchSession()?.userId
@@ -726,6 +741,7 @@ class MarketViewModel(
                     paymentMethod = paymentMethod,
                     address = shippingAddress,
                     phone = phone,
+                    guestName = if (userId == 0) fullName else null,
                     items = networkItems
                 )
 

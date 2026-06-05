@@ -129,7 +129,17 @@ data class OrderRequest(
     @Json(name = "payment_method") val paymentMethod: String = "COD",
     val address: String,
     val phone: String,
+    @Json(name = "guest_name") val guestName: String? = null,
     @Json(name = "items") val items: List<NetworkCartItem>
+)
+
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+data class ForgotPasswordResponse(
+    val success: Boolean,
+    val message: String? = null
 )
 
 data class NetworkCartItem(
@@ -234,6 +244,9 @@ interface SnowwhiteApi {
 
     @POST("login.php")
     suspend fun loginUser(@Body request: LoginRequest): retrofit2.Response<LoginResponse>
+
+    @POST("forgot_password.php")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): retrofit2.Response<ForgotPasswordResponse>
 
     @POST("register.php")
     suspend fun registerUser(@Body request: RegisterRequest): retrofit2.Response<RegisterResponse>
