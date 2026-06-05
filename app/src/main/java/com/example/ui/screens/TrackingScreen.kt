@@ -19,6 +19,83 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.network.RetrofitClient
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+
+@Composable
+fun StatusTracker(currentStageIdx: Int) {
+    val stages = listOf("Collected", "In Cleaning", "Quality Check", "Delivery")
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            stages.forEachIndexed { index, stage ->
+                val isCompleted = index <= currentStageIdx
+                val isCurrent = index == currentStageIdx
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(
+                                color = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                            .border(
+                                width = if (isCurrent) 2.dp else 0.dp,
+                                color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer else Color.Transparent,
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                    ) {
+                        if (isCompleted) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = stage,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "${index + 1}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stage,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isCompleted) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isCompleted) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2
+                    )
+                }
+                
+                if (index < stages.size - 1) {
+                    Box(
+                        modifier = Modifier
+                            .weight(0.5f)
+                            .height(2.dp)
+                            .background(if (index < currentStageIdx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackingScreen(onBack: () -> Unit) {
@@ -128,9 +205,8 @@ fun TrackingScreen(onBack: () -> Unit) {
                         Text(text = "Date: ${orderData!!.createdAt}", style = MaterialTheme.typography.bodySmall)
                         
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text("Mock Processing Stages (Laundry):", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("Order Status:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
-                        val stages = listOf("Collected", "In Cleaning", "Quality Check", "Out for Delivery")
                         val currentStageIdx = when (orderData!!.status.lowercase()) {
                             "pending" -> 0
                             "processing" -> 1
@@ -138,23 +214,8 @@ fun TrackingScreen(onBack: () -> Unit) {
                             "delivered" -> 4
                             else -> 0
                         }
-                        stages.forEachIndexed { index, stage ->
-                            val isCompleted = index <= currentStageIdx
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-                                Icon(
-                                    imageVector = if (isCompleted) androidx.compose.material.icons.Icons.Default.CheckCircle else androidx.compose.material.icons.Icons.Default.RadioButtonUnchecked,
-                                    contentDescription = stage,
-                                    tint = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = stage,
-                                    color = if (isCompleted) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    fontWeight = if (isCompleted) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal
-                                )
-                            }
-                        }
+                        
+                        StatusTracker(currentStageIdx)
                         
                         Spacer(modifier = Modifier.height(24.dp))
                         

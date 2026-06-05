@@ -28,7 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.ViewModelProvider
 import com.example.data.AppDatabase
 import com.example.data.InventoryRepository
-import com.example.ui.screens.AdminInventoryScreen
+import com.example.ui.screens.AdminProductsScreen
 import com.example.ui.screens.CartScreen
 import com.example.ui.screens.MainCatalogScreen
 import com.example.ui.screens.OrdersScreen
@@ -94,7 +94,7 @@ class MainActivity : FragmentActivity() {
                      if (cachedId != null) {
                          if ((sessionManager.fetchSession()?.role.equals("admin", ignoreCase = true) || sessionManager.fetchSession()?.role.equals("super_admin", ignoreCase = true))) 2 else 0
                      } else {
-                         4 // Start on Login Screen (ProfileScreen)
+                         0 // Start on Home Page (Products)
                      }
                  }
                  var selectedTab by remember { mutableStateOf(initialTab) }
@@ -111,7 +111,7 @@ class MainActivity : FragmentActivity() {
                  }
 
                  LaunchedEffect(loggedInUser) {
-                     if (loggedInUser == null) { selectedTab = 4 } else if (loggedInUser?.isAdmin != true && selectedTab == 2) {
+                     if (loggedInUser?.isAdmin != true && selectedTab == 2) {
                          selectedTab = 0
                      }
                  }
@@ -226,7 +226,7 @@ class MainActivity : FragmentActivity() {
                                 viewModel = viewModel,
                                 onNavigateToTab = { targetTab -> selectedTab = targetTab }
                             )
-                            2 -> AdminInventoryScreen(viewModel = viewModel)
+                            2 -> AdminProductsScreen(viewModel = viewModel)
                             3 -> OrdersScreen(
                                 viewModel = viewModel,
                                 onNavigateToTab = { targetTab -> selectedTab = targetTab }

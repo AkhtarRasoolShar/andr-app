@@ -238,6 +238,15 @@ data class UpdateProfileResponse(
     val message: String? = null
 )
 
+data class ManageProductRequest(
+    @Json(name = "action") val action: String,
+    @Json(name = "product_id") val productId: Int? = null,
+    val title: String? = null,
+    val price: Double? = null,
+    val stock: Int? = null,
+    @Json(name = "image_url") val imageUrl: String? = null
+)
+
 interface SnowwhiteApi {
     @GET("log_visitor.php")
     suspend fun logVisitor(): retrofit2.Response<Unit>
@@ -298,6 +307,9 @@ interface SnowwhiteApi {
 
     @GET("get_settings.php")
     suspend fun getAppSettings(): retrofit2.Response<SettingsResponse>
+
+    @POST("api_manage_products.php")
+    suspend fun manageProduct(@Body request: ManageProductRequest): retrofit2.Response<ApiResponse>
 }
 
 object ApiErrorEvent {

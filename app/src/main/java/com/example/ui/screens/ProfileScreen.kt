@@ -914,7 +914,14 @@ fun UserProfileCard(
             }
             
             // App Notifications Settings
-            var notificationsEnabled by remember { mutableStateOf(true) }
+            val contextForPrefs = androidx.compose.ui.platform.LocalContext.current
+            val sharedPrefsForNotifications = remember { contextForPrefs.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE) }
+            
+            var notificationsEnabled by remember { mutableStateOf(sharedPrefsForNotifications.getBoolean("notifications_enabled", true)) }
+            var soundEnabled by remember { mutableStateOf(sharedPrefsForNotifications.getBoolean("notification_sound_enabled", true)) }
+            var soundPreset by remember { mutableStateOf(sharedPrefsForNotifications.getString("notification_sound_preset", "Default") ?: "Default") }
+            var showPresetsMenu by remember { mutableStateOf(false) }
+            
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -936,8 +943,64 @@ fun UserProfileCard(
                 }
                 Switch(
                     checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it }
+                    onCheckedChange = { 
+                        notificationsEnabled = it 
+                        sharedPrefsForNotifications.edit().putBoolean("notifications_enabled", it).apply()
+                    }
                 )
+            }
+            
+            if (notificationsEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp, horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Sound", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = soundEnabled,
+                        onCheckedChange = { 
+                            soundEnabled = it
+                            sharedPrefsForNotifications.edit().putBoolean("notification_sound_enabled", it).apply()
+                        }
+                    )
+                }
+                
+                if (soundEnabled) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp, horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Notification Tone", style = MaterialTheme.typography.bodyMedium)
+                        Box {
+                            TextButton(onClick = { showPresetsMenu = true }) {
+                                Text(soundPreset)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select tone")
+                            }
+                            DropdownMenu(
+                                expanded = showPresetsMenu,
+                                onDismissRequest = { showPresetsMenu = false }
+                            ) {
+                                listOf("Default", "Digital", "Chime", "Bell").forEach { preset ->
+                                    DropdownMenuItem(
+                                        text = { Text(preset) },
+                                        onClick = {
+                                            soundPreset = preset
+                                            sharedPrefsForNotifications.edit().putString("notification_sound_preset", preset).apply()
+                                            showPresetsMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             
             // Help & Support Button (Help Center)

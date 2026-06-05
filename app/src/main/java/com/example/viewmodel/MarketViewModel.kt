@@ -704,6 +704,31 @@ class MarketViewModel(
         }
     }
 
+    fun manageProductRemote(
+        action: String,
+        productId: Int? = null,
+        title: String? = null,
+        price: Double? = null,
+        stock: Int? = null,
+        imageUrl: String? = null,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val req = com.example.network.ManageProductRequest(action, productId, title, price, stock, imageUrl)
+                val response = com.example.network.RetrofitClient.apiService.manageProduct(req)
+                if (response.isSuccessful && response.body()?.status == "success") {
+                    loadProductsFromApi()
+                    onResult(true, response.body()?.message ?: "Success")
+                } else {
+                    onResult(false, response.body()?.message ?: "Failed.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "API Error")
+            }
+        }
+    }
+
     fun deleteProductRemote(productId: Int, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {

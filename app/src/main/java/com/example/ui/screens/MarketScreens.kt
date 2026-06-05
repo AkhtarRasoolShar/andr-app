@@ -634,6 +634,7 @@ fun WishlistScreen(viewModel: MarketViewModel, onClose: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainCatalogScreen(
     viewModel: MarketViewModel,
@@ -692,14 +693,17 @@ fun MainCatalogScreen(
         WishlistScreen(viewModel = viewModel, onClose = { isWishlistOpen = false })
         return
     }
+    
+    var showContactSupport by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // Welcome and Headline Block
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            // Welcome and Headline Block
+            Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
@@ -812,8 +816,8 @@ fun MainCatalogScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         
-        PromotionalHeader()
-        ServiceSelectionCards()
+        PromoHeader()
+        ServiceCatalog()
 
         // Category Selection Stepper/Scrollable chips
         val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
@@ -1002,6 +1006,78 @@ fun MainCatalogScreen(
             onDismiss = { activeProductForDetail = null }
         )
     }
+    
+    FloatingActionButton(
+        onClick = { showContactSupport = true },
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(16.dp),
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        Icon(Icons.Default.SupportAgent, contentDescription = "Contact Support")
+    }
+
+    if (showContactSupport) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showContactSupport = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Contact Support",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Need help? We're here for you 24/7.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Phone, contentDescription = "Phone", tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text("1-800-SNOW-WHT", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = { showContactSupport = false },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = "Live Chat")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Start Live Chat")
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+    } // End Box
 }
 
 @Composable
@@ -1603,59 +1679,15 @@ fun CartScreen(
                     // Financial Tallies receipt
                     
                     var fabricCareInstructions by remember { mutableStateOf("") }
-                    val timeSlots = listOf("08:00 AM - 10:00 AM", "12:00 PM - 02:00 PM", "04:00 PM - 06:00 PM")
                     
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "LAUNDRY PICK-UP SCHEDULE",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            OutlinedTextField(
-                                value = selectedPickupDate,
-                                onValueChange = { selectedPickupDate = it },
-                                label = { Text("Pick-up Date (e.g. YYYY-MM-DD)") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            Text("Preferred Time Slot", style = MaterialTheme.typography.bodySmall)
-                            Row(
-                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                timeSlots.forEach { slot ->
-                                    FilterChip(
-                                        selected = selectedPickupSlot == slot,
-                                        onClick = { selectedPickupSlot = slot },
-                                        label = { Text(slot) }
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            OutlinedTextField(
-                                value = fabricCareInstructions,
-                                onValueChange = { fabricCareInstructions = it },
-                                label = { Text("Special fabric care instructions") },
-                                modifier = Modifier.fillMaxWidth().height(80.dp),
-                                maxLines = 3
-                            )
-                        }
-                    }
+                    PickupScheduler(
+                        selectedDate = selectedPickupDate,
+                        onDateChange = { selectedPickupDate = it },
+                        selectedSlot = selectedPickupSlot,
+                        onSlotChange = { selectedPickupSlot = it },
+                        careInstructions = fabricCareInstructions,
+                        onCareInstructionsChange = { fabricCareInstructions = it }
+                    )
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -3983,31 +4015,66 @@ fun AdminDashboardChart(
 }
 
 @Composable
-fun PromotionalHeader() {
+fun PromoHeader() {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "✨ First-Time User Offer!",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+        Box(modifier = Modifier.fillMaxWidth().height(140.dp)) {
+            coil.compose.AsyncImage(
+                model = "https://images.unsplash.com/photo-1545173168-9f1947eebb7f?q=80&w=2071&auto=format&fit=crop",
+                contentDescription = "Promo Background",
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Get 20% off your first laundry or dry cleaning order. Use code: SNOW20",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            // Gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.8f),
+                                Color.Black.copy(alpha = 0.2f)
+                            )
+                        )
+                    )
             )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "✨ Spring Cleaning Sale!",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Get 20% off your first dry cleaning order.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { /* Claim offer logic */ },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text("Claim Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
 
 @Composable
-fun ServiceSelectionCards() {
+fun ServiceCatalog() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -4034,6 +4101,259 @@ fun ServiceCard(title: String, priceText: String, icon: ImageVector) {
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = priceText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+fun AdminProductsScreen(viewModel: MarketViewModel) {
+    val loggedInUser by viewModel.loggedInUser.collectAsState()
+    val products by viewModel.productsState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    var deleteCandidate by remember { mutableStateOf<Product?>(null) }
+    var editCandidate by remember { mutableStateOf<Product?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    if (loggedInUser == null || !(loggedInUser!!.role == "admin" || loggedInUser!!.role == "super_admin")) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Access Denied. Admins only.", color = MaterialTheme.colorScheme.error)
+        }
+        return
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add New Product")
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(products, key = { it.id }) { product ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        coil.compose.AsyncImage(
+                            model = product.imageUrl.takeIf { it.isNotBlank() } ?: "https://via.placeholder.com/150",
+                            contentDescription = product.title,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = product.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(text = "Price: $${product.price}", style = MaterialTheme.typography.bodyMedium)
+                            Text(text = "Stock: ${product.stock}", style = MaterialTheme.typography.bodySmall, color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                        }
+                        IconButton(onClick = { editCandidate = product }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Product", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = { deleteCandidate = product }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Product", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    deleteCandidate?.let { product ->
+        AlertDialog(
+            onDismissRequest = { deleteCandidate = null },
+            title = { Text("Delete Product") },
+            text = { Text("Are you sure you want to delete '${product.title}'?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.manageProductRemote("delete", productId = product.id) { success, msg ->
+                        if (success) {
+                            android.widget.Toast.makeText(context, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    deleteCandidate = null
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteCandidate = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showAddDialog || editCandidate != null) {
+        val isEdit = editCandidate != null
+        val product = editCandidate
+        AddEditProductDialog(
+            isEdit = isEdit,
+            initialTitle = product?.title ?: "",
+            initialPrice = product?.price?.toString() ?: "",
+            initialStock = product?.stock?.toString() ?: "",
+            initialImageUrl = product?.imageUrl ?: "",
+            onDismiss = {
+                showAddDialog = false
+                editCandidate = null
+            },
+            onSave = { title, price, stock, imageUrl ->
+                viewModel.manageProductRemote(
+                    action = if (isEdit) "edit" else "add",
+                    productId = product?.id,
+                    title = title,
+                    price = price,
+                    stock = stock,
+                    imageUrl = imageUrl
+                ) { success, msg ->
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                    if (success) {
+                        showAddDialog = false
+                        editCandidate = null
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun AddEditProductDialog(
+    isEdit: Boolean,
+    initialTitle: String,
+    initialPrice: String,
+    initialStock: String,
+    initialImageUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (title: String, price: Double, stock: Int, imageUrl: String) -> Unit
+) {
+    var title by remember { mutableStateOf(initialTitle) }
+    var price by remember { mutableStateOf(initialPrice) }
+    var stock by remember { mutableStateOf(initialStock) }
+    var imageUrl by remember { mutableStateOf(initialImageUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEdit) "Edit Product" else "Add New Product") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = stock, onValueChange = { stock = it }, label = { Text("Stock") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = { Text("Image URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val p = price.toDoubleOrNull() ?: 0.0
+                val s = stock.toIntOrNull() ?: 0
+                if (title.isNotBlank()) {
+                    onSave(title, p, s, imageUrl)
+                }
+            }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PickupScheduler(
+    selectedDate: String,
+    onDateChange: (String) -> Unit,
+    selectedSlot: String,
+    onSlotChange: (String) -> Unit,
+    careInstructions: String,
+    onCareInstructionsChange: (String) -> Unit
+) {
+    val timeSlots = listOf("Morning (08:00 AM - 12:00 PM)", "Afternoon (12:00 PM - 04:00 PM)", "Evening (04:00 PM - 08:00 PM)")
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "LAUNDRY PICK-UP SCHEDULE",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedTextField(
+                value = selectedDate,
+                onValueChange = onDateChange,
+                label = { Text("Pick-up Date (e.g. YYYY-MM-DD)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = "Date") }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = selectedSlot,
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Preferred Time Slot") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    timeSlots.forEach { slot ->
+                        DropdownMenuItem(
+                            text = { Text(slot) },
+                            onClick = {
+                                onSlotChange(slot)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = careInstructions,
+                onValueChange = onCareInstructionsChange,
+                label = { Text("Special fabric care instructions") },
+                modifier = Modifier.fillMaxWidth().height(80.dp),
+                maxLines = 3
+            )
         }
     }
 }
