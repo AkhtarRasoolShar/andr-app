@@ -192,12 +192,62 @@ fun ProfileScreen(
                                 .fillMaxWidth()
                                 .padding(bottom = 12.dp)
                         ) {
-                            Text(
-                                text = formError ?: "",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(10.dp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = formError ?: "",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                val err = formError ?: ""
+                                if (err.contains("Server") || err.contains("HTTP 5") || err.contains("network", ignoreCase=true) || err.contains("timeout", ignoreCase=true) || err.contains("failed", ignoreCase=true) || err.contains("Exception", ignoreCase=true) || err.contains("reach", ignoreCase=true)) {
+                                    TextButton(
+                                        onClick = {
+                                            if (isCreatingState) {
+                                                viewModel.createAccount(
+                                                    fullName = fullNameVal,
+                                                    email = emailVal,
+                                                    phone = phoneVal,
+                                                    city = cityVal,
+                                                    address = addressVal,
+                                                    passwordEntered = passwordVal
+                                                ) { success, errMsg ->
+                                                    if (success) {
+                                                        successMsg = "Premium Card Account created successfully! Logged in as Member."
+                                                        formError = null
+                                                        if (sessionManager.isBiometricEnabled()) {
+                                                            sessionManager.cacheSecureSession(emailVal, fullNameVal, "customer")
+                                                        }
+                                                        onNavigateToTab(0)
+                                                    } else {
+                                                        formError = errMsg
+                                                        successMsg = null
+                                                        android.widget.Toast.makeText(context, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            } else {
+                                                viewModel.login(emailVal, passwordVal) { success, errMsg ->
+                                                    if (success) {
+                                                        successMsg = "Successfully authenticated. Welcome back!"
+                                                        formError = null
+                                                        if (sessionManager.isBiometricEnabled()) {
+                                                            val uname = emailVal.substringBefore("@")
+                                                            sessionManager.cacheSecureSession(emailVal, uname, "customer")
+                                                        }
+                                                        onNavigateToTab(0)
+                                                    } else {
+                                                        formError = errMsg ?: "Could not verify profile credentials."
+                                                        successMsg = null
+                                                        android.widget.Toast.makeText(context, formError, android.widget.Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Text("Retry", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
                     }
 

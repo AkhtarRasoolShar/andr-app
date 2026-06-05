@@ -247,6 +247,19 @@ data class ManageProductRequest(
     @Json(name = "image_url") val imageUrl: String? = null
 )
 
+data class AdminMasterRequest(
+    @Json(name = "action") val action: String,
+    @Json(name = "order_id") val orderId: Int? = null,
+    @Json(name = "status") val status: String? = null,
+    @Json(name = "user_id") val userId: Int? = null,
+    @Json(name = "role") val role: String? = null,
+    @Json(name = "maintenance_mode") val maintenanceMode: Boolean? = null,
+    @Json(name = "cod_enabled") val codEnabled: Boolean? = null,
+    @Json(name = "primary_color") val primaryColor: String? = null,
+    @Json(name = "delivery_fee") val deliveryFee: Double? = null,
+    @Json(name = "app_name") val appName: String? = null
+)
+
 interface SnowwhiteApi {
     @GET("log_visitor.php")
     suspend fun logVisitor(): retrofit2.Response<Unit>
@@ -310,6 +323,9 @@ interface SnowwhiteApi {
 
     @POST("api_manage_products.php")
     suspend fun manageProduct(@Body request: ManageProductRequest): retrofit2.Response<ApiResponse>
+
+    @POST("api_admin_master.php")
+    suspend fun sendAdminCommand(@Body request: AdminMasterRequest): retrofit2.Response<ApiResponse>
 }
 
 object ApiErrorEvent {
@@ -347,7 +363,13 @@ object RetrofitClient {
         if (!response.isSuccessful) {
             val responseBody = response.peekBody(Long.MAX_VALUE).string()
             android.util.Log.e("API_ERROR", "Code: ${response.code}, URL: ${request.url}, Body: $responseBody")
-            ApiErrorEvent.emit("API Error: ${response.code} ${response.message}")
+            
+            val userFriendlyMessage = when (response.code) {
+                in 500..599 -> "Server issues. Please try again later. (Error ${response.code})"
+                in 400..499 -> "Invalid request or credentials. (Error ${response.code})"
+                else -> "API Error: ${response.code} ${response.message}"
+            }
+            ApiErrorEvent.emit(userFriendlyMessage)
         }
         response
     }

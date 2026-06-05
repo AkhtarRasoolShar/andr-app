@@ -644,9 +644,11 @@ fun MainCatalogScreen(
     val selectedCat by viewModel.selectedCategory.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val cartSummary by viewModel.cartSummary.collectAsState()
+    val loggedInUser by viewModel.loggedInUser.collectAsState()
 
     var activeProductForDetail by remember { mutableStateOf<Product?>(null) }
     var isWishlistOpen by remember { mutableStateOf(false) }
+    var showAdminCategoryMenu by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val context = LocalContext.current
@@ -735,6 +737,26 @@ fun MainCatalogScreen(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin") {
+                        Box {
+                            IconButton(onClick = { showAdminCategoryMenu = true }) {
+                                Icon(Icons.Default.MoreVert, "Admin Menu")
+                            }
+                            DropdownMenu(
+                                expanded = showAdminCategoryMenu,
+                                onDismissRequest = { showAdminCategoryMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Manage Categories") },
+                                    onClick = {
+                                        showAdminCategoryMenu = false
+                                        android.widget.Toast.makeText(context, "Category Manager coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     IconButton(
                         onClick = { isWishlistOpen = true },
                         modifier = Modifier.testTag("nav_wishlist_badge")
@@ -1225,42 +1247,43 @@ fun ProductDetailModal(
     viewModel: MarketViewModel,
     onDismiss: () -> Unit
 ) {
+    androidx.activity.compose.BackHandler(onBack = onDismiss)
     val context = androidx.compose.ui.platform.LocalContext.current
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    
+    // Changing from Dialog to full-screen page view overlay
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Box {
-                    coil.compose.AsyncImage(
-                        model = product.imageUrl,
-                        contentDescription = product.title,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                            .align(Alignment.TopEnd)
-                    ) {
-                        Icon(Icons.Default.Close, "Dismiss model", tint = Color.White)
-                    }
+            Box {
+                coil.compose.AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp), // Thicker header for details page
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+                // Back button on top left instead of dismiss on top right for a page feel
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .align(Alignment.TopStart)
+                ) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                 }
+            }
 
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
                         text = "BY: ${product.artisanName.uppercase()}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.secondary,
@@ -1365,13 +1388,13 @@ fun ProductDetailModal(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(0.7f)) {
                             Text(
-                                text = "ESTIMATED TOTAL",
+                                text = "PRICE",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
@@ -1383,34 +1406,40 @@ fun ProductDetailModal(
                             )
                         }
 
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 viewModel.addToCart(product)
-                                android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
-                                onDismiss()
+                                android.widget.Toast.makeText(context, "Added to cart! 🛒", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             enabled = product.stock > 0,
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .height(48.dp)
-                                .testTag("modal_buy_button"),
+                            modifier = Modifier.height(48.dp).weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Text(if (product.stock > 0) "Add to Cart" else "Out of Stock", fontSize = 13.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.addToCart(product)
+                                onDismiss()
+                                // Note: we should transition to cart here maybe, but onDismiss handles the modal closing.
+                            },
+                            enabled = product.stock > 0,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(48.dp).weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 disabledContainerColor = MaterialTheme.colorScheme.outline
                             )
                         ) {
-                            Icon(Icons.Default.ShoppingCartCheckout, "Add checkout symbol")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (product.stock > 0) "Add to Bag" else "Out of Stock",
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text("Buy Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
             }
         }
-    }
 }
 
 
@@ -1455,6 +1484,13 @@ fun CartScreen(
     var selectedPickupSlot by remember { mutableStateOf("") }
     var selectedDeliveryDate by remember { mutableStateOf("") }
     var selectedDeliverySlot by remember { mutableStateOf("") }
+
+    LaunchedEffect(successOrder) {
+        if (successOrder != null) {
+            val deliveryText = if (selectedDeliveryDate.isNotEmpty()) selectedDeliveryDate else "3-5 business days"
+            android.widget.Toast.makeText(context, "Order Confirmed: ${successOrder.id}. Est. Delivery: $deliveryText", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Read promo states from combined ViewModel
     val couponSuccess by viewModel.couponSuccess.collectAsState()
@@ -2118,60 +2154,63 @@ fun CartScreen(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                // Outlined digits values
-                                OutlinedTextField(
-                                    value = cardNum,
-                                    onValueChange = { cardNum = it.filter { char -> char.isDigit() || char == ' ' } },
-                                    label = { Text("Credit Card Number") },
-                                    placeholder = { Text("e.g., 4242 4242 4242 4242") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("card_number_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                OutlinedTextField(
-                                    value = cardHolder,
-                                    onValueChange = { cardHolder = it },
-                                    label = { Text("Cardholder Name") },
-                                    placeholder = { Text("e.g., Elena Kovalyov") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("cardholder_name_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(modifier = Modifier.fillMaxWidth()) {
+                                if (selectedPaymentMethod == "card") {
+                                    // Outlined digits values
                                     OutlinedTextField(
-                                        value = cardExpiry,
-                                        onValueChange = { cardExpiry = it },
-                                        label = { Text("Expiry (MM/YY)") },
-                                        placeholder = { Text("12/28") },
+                                        value = cardNum,
+                                        onValueChange = { cardNum = it.filter { char -> char.isDigit() || char == ' ' } },
+                                        label = { Text("Credit Card Number") },
+                                        placeholder = { Text("e.g., 4242 4242 4242 4242") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier
-                                            .weight(1f)
-                                            .testTag("expiry_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
+                                            .fillMaxWidth()
+                                            .testTag("card_number_input"),
                                         shape = RoundedCornerShape(10.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
                                     OutlinedTextField(
-                                        value = cardCvv,
-                                        onValueChange = { cardCvv = it.filter { char -> char.isDigit() }.take(4) },
-                                        label = { Text("CVV") },
-                                        placeholder = { Text("123") },
-                                        visualTransformation = PasswordVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        value = cardHolder,
+                                        onValueChange = { cardHolder = it },
+                                        label = { Text("Cardholder Name") },
+                                        placeholder = { Text("e.g., Elena Kovalyov") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                                         modifier = Modifier
-                                            .weight(0.8f)
-                                            .testTag("cvv_input").then(if (selectedPaymentMethod == "cod") Modifier.size(0.dp) else Modifier),
+                                            .fillMaxWidth()
+                                            .testTag("cardholder_name_input"),
                                         shape = RoundedCornerShape(10.dp)
                                     )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        OutlinedTextField(
+                                            value = cardExpiry,
+                                            onValueChange = { cardExpiry = it },
+                                            label = { Text("Expiry (MM/YY)") },
+                                            placeholder = { Text("12/28") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("expiry_input"),
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        OutlinedTextField(
+                                            value = cardCvv,
+                                            onValueChange = { cardCvv = it.filter { char -> char.isDigit() }.take(4) },
+                                            label = { Text("CVV") },
+                                            placeholder = { Text("123") },
+                                            visualTransformation = PasswordVisualTransformation(),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            modifier = Modifier
+                                                .weight(0.8f)
+                                                .testTag("cvv_input"),
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -2240,13 +2279,35 @@ fun CartScreen(
 
                                 // Real-time feedback for checkout errors
                                 if (errorOrder != null) {
-                                    Text(
-                                        text = errorOrder,
-                                        color = Color(0xFFD32F2F),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(bottom = 12.dp)
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(bottom = 12.dp).fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = errorOrder,
+                                            color = Color(0xFFD32F2F),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        
+                                        // Retry button for transient errors
+                                        if (errorOrder.contains("Server") || errorOrder.contains("HTTP 5") || errorOrder.contains("network", ignoreCase=true) || errorOrder.contains("timeout", ignoreCase=true) || errorOrder.contains("failed", ignoreCase=true) || errorOrder.contains("Exception", ignoreCase=true) || errorOrder.contains("reach", ignoreCase=true)) {
+                                            TextButton(
+                                                onClick = {
+                                                    viewModel.checkout(
+                                                        paymentMethod = selectedPaymentMethod,
+                                                        shippingAddress = addressStr,
+                                                        phone = phoneStr,
+                                                        fullName = fullNameStr,
+                                                        onSuccess = { onNavigateToTab(3) }
+                                                    )
+                                                }
+                                            ) {
+                                                Text("Retry", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
 
                                 Button(

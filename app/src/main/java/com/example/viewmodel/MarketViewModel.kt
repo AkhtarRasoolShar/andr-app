@@ -437,7 +437,8 @@ class MarketViewModel(
                 if (response.isSuccessful && response.body()?.success == true) {
                     onResult(true, response.body()?.message ?: "Password reset instructions sent.")
                 } else {
-                    onResult(false, response.body()?.message ?: "Failed to reset password.")
+                    val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(response)
+                    onResult(false, errorMsg ?: response.body()?.message ?: "Failed to reset password.")
                 }
             } catch (e: Exception) {
                 onResult(false, e.localizedMessage ?: "Network error.")
@@ -721,7 +722,8 @@ class MarketViewModel(
                     loadProductsFromApi()
                     onResult(true, response.body()?.message ?: "Success")
                 } else {
-                    onResult(false, response.body()?.message ?: "Failed.")
+                    val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(response)
+                    onResult(false, errorMsg ?: response.body()?.message ?: "Failed.")
                 }
             } catch (e: Exception) {
                 onResult(false, e.localizedMessage ?: "API Error")
@@ -826,7 +828,8 @@ class MarketViewModel(
                     repository.clearCart() 
                     onSuccess()
                 } else {
-                    paymentResultError = response.body()?.message ?: "Failed to place order."
+                    val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(response)
+                    paymentResultError = errorMsg ?: response.body()?.message ?: "Failed to place order (HTTP ${response.code()})."
                 }
             } catch (e: Exception) {
                 paymentResultError = e.message ?: "Transaction failed. Please try again."
@@ -839,6 +842,16 @@ class MarketViewModel(
     fun acknowledgePaymentResult() {
         paymentResultSuccess = null
         paymentResultError = null
+    }
+
+    // --- Admin Master API Requests ---
+    suspend fun sendAdminCommand(request: com.example.network.AdminMasterRequest): com.example.network.ApiResponse? {
+        return try {
+            val response = com.example.network.RetrofitClient.apiService.sendAdminCommand(request)
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     // Luhn card logic

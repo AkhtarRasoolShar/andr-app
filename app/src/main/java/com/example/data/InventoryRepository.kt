@@ -106,7 +106,8 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         if (response.isSuccessful && response.body()?.success == true) {
             return true
         } else {
-            throw Exception(response.body()?.message ?: "Registration failed.")
+            val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(response)
+            throw Exception(errorMsg ?: response.body()?.message ?: "Registration failed (HTTP ${response.code()}).")
         }
     }
 
@@ -168,7 +169,8 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
             return true
         } else {
-            throw Exception(response?.message ?: "Invalid remote credentials from PHP backend.")
+            val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(retrofitResponse)
+            throw Exception(errorMsg ?: response?.message ?: "Login failed (HTTP ${retrofitResponse.code()}).")
         }
     }
 
@@ -230,7 +232,8 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
                 
                 onResult(true, "Profile updated successfully")
             } else {
-                onResult(false, res.body()?.message ?: "Failed to update profile via API.")
+                val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(res)
+                onResult(false, errorMsg ?: res.body()?.message ?: "Failed to update profile via API (HTTP ${res.code()}).")
             }
         } catch (e: Exception) {
             onResult(false, e.localizedMessage ?: "Failed to reach server")

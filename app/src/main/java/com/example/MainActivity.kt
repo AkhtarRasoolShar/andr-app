@@ -134,83 +134,66 @@ class MainActivity : FragmentActivity() {
                                  .windowInsetsPadding(WindowInsets.navigationBars)
                                  .testTag("main_bottom_nav"),
                              containerColor = MaterialTheme.colorScheme.surface,
-                             tonalElevation = NavigationBarDefaults.Elevation // soft tonal contrast
+                             tonalElevation = NavigationBarDefaults.Elevation
                          ) {
-                             NavigationBarItem(
-                                 selected = selectedTab == 0,
-                                 onClick = { selectedTab = 0 },
-                                 label = { Text("Shop") },
-                                 icon = {
-                                     Icon(
-                                         imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                                         contentDescription = "Explore Snowhite Boutique Catalog"
-                                     )
-                                 },
-                                 modifier = Modifier.testTag("tab_shop")
-                             )
-
-                             NavigationBarItem(
-                                 selected = selectedTab == 1,
-                                 onClick = { selectedTab = 1 },
-                                 label = { Text("Bag") },
-                                 icon = {
-                                     val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
-                                     BadgedBox(
-                                         badge = {
-                                             if (qtyCount > 0) {
-                                                 Badge(modifier = Modifier.testTag("cart_badge_count")) {
-                                                     Text(text = "$qtyCount")
-                                                 }
-                                             }
-                                         }
-                                     ) {
-                                         Icon(
-                                             imageVector = if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
-                                             contentDescription = "Shopping Bag and Checkout"
-                                         )
-                                     }
-                                 },
-                                 modifier = Modifier.testTag("tab_cart")
-                             )
-
-                             NavigationBarItem(
-                                 selected = selectedTab == 3,
-                                 onClick = { selectedTab = 3 },
-                                 label = { Text("Orders") },
-                                 icon = {
-                                     Icon(
-                                         imageVector = if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt,
-                                         contentDescription = "Order tracking history"
-                                     )
-                                 },
-                                 modifier = Modifier.testTag("tab_orders")
-                             )
-
-                             NavigationBarItem(
-                                 selected = selectedTab == 4,
-                                 onClick = { selectedTab = 4 },
-                                 label = { Text("Account") },
-                                 icon = {
-                                     Icon(
-                                         imageVector = if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
-                                         contentDescription = "User loyalty account and settings"
-                                     )
-                                 },
-                                 modifier = Modifier.testTag("tab_profile")
-                             )
-
-                             if (loggedInUser?.isAdmin == true) {
+                             if (loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin") {
+                                 // Admin Bottom Nav
                                  NavigationBarItem(
-                                     selected = selectedTab == 2,
-                                     onClick = { selectedTab = 2 },
-                                     label = { Text("Portal") },
+                                     selected = selectedTab == 10,
+                                     onClick = { selectedTab = 10 },
+                                     label = { Text("Orders") },
+                                     icon = { Icon(if (selectedTab == 10) Icons.Filled.Receipt else Icons.Outlined.Receipt, "Manage Orders") }
+                                 )
+                                 NavigationBarItem(
+                                     selected = selectedTab == 11,
+                                     onClick = { selectedTab = 11 },
+                                     label = { Text("Products") },
+                                     icon = { Icon(if (selectedTab == 11) Icons.Filled.Build else Icons.Outlined.Build, "Manage Products") }
+                                 )
+                                 NavigationBarItem(
+                                     selected = selectedTab == 12,
+                                     onClick = { selectedTab = 12 },
+                                     label = { Text("Settings") },
+                                     icon = { Icon(if (selectedTab == 12) Icons.Filled.Build else Icons.Outlined.Build, "App Settings") }
+                                 )
+                                 if (loggedInUser?.role == "super_admin") {
+                                     NavigationBarItem(
+                                         selected = selectedTab == 13,
+                                         onClick = { selectedTab = 13 },
+                                         label = { Text("Users") },
+                                         icon = { Icon(if (selectedTab == 13) Icons.Filled.Person else Icons.Outlined.Person, "Manage Users") }
+                                     )
+                                 }
+                             } else {
+                                 // Customer Bottom Nav
+                                 NavigationBarItem(
+                                     selected = selectedTab == 0,
+                                     onClick = { selectedTab = 0 },
+                                     label = { Text("Shop") },
+                                     icon = { Icon(if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home, "Explore") }
+                                 )
+                                 NavigationBarItem(
+                                     selected = selectedTab == 1,
+                                     onClick = { selectedTab = 1 },
+                                     label = { Text("Bag") },
                                      icon = {
-                                         Icon(
-                                             imageVector = if (selectedTab == 2) Icons.Filled.Build else Icons.Outlined.Build,
-                                             contentDescription = "Merchant inventory controls"
-                                         )
-                                     },
-                                     modifier = Modifier.testTag("tab_admin")
+                                         val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
+                                         BadgedBox(badge = { if (qtyCount > 0) Badge { Text("$qtyCount") } }) {
+                                             Icon(if (selectedTab == 1) Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart, "Bag")
+                                         }
+                                     }
+                                 )
+                                 NavigationBarItem(
+                                     selected = selectedTab == 3,
+                                     onClick = { selectedTab = 3 },
+                                     label = { Text("Orders") },
+                                     icon = { Icon(if (selectedTab == 3) Icons.Filled.Receipt else Icons.Outlined.Receipt, "Orders") }
+                                 )
+                                 NavigationBarItem(
+                                     selected = selectedTab == 4,
+                                     onClick = { selectedTab = 4 },
+                                     label = { Text("Account") },
+                                     icon = { Icon(if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person, "Account") }
                                  )
                              }
                          }
@@ -218,30 +201,18 @@ class MainActivity : FragmentActivity() {
                  ) { innerPadding ->
                     Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
                         when (selectedTab) {
-                            0 -> MainCatalogScreen(
-                                viewModel = viewModel,
-                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
-                            )
-                            1 -> CartScreen(
-                                viewModel = viewModel,
-                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
-                            )
+                            0 -> MainCatalogScreen(viewModel = viewModel, onNavigateToTab = { targetTab -> selectedTab = targetTab })
+                            1 -> CartScreen(viewModel = viewModel, onNavigateToTab = { targetTab -> selectedTab = targetTab })
                             2 -> AdminProductsScreen(viewModel = viewModel)
-                            3 -> OrdersScreen(
-                                viewModel = viewModel,
-                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
-                            )
-                            4 -> ProfileScreen(
-                                viewModel = viewModel,
-                                onNavigateToTab = { targetTab -> selectedTab = targetTab }
-                            )
-                            5 -> com.example.ui.screens.SupportChatScreen(
-                                viewModel = viewModel,
-                                onBack = { selectedTab = 0 }
-                            )
-                            6 -> com.example.ui.screens.TrackingScreen(
-                                onBack = { selectedTab = 3 }
-                            )
+                            3 -> OrdersScreen(viewModel = viewModel, onNavigateToTab = { targetTab -> selectedTab = targetTab })
+                            4 -> ProfileScreen(viewModel = viewModel, onNavigateToTab = { targetTab -> selectedTab = targetTab })
+                            5 -> com.example.ui.screens.SupportChatScreen(viewModel = viewModel, onBack = { selectedTab = 0 })
+                            6 -> com.example.ui.screens.TrackingScreen(onBack = { selectedTab = 3 })
+                            // Admin Tabs
+                            10 -> com.example.ui.screens.AdminOrdersScreen(viewModel = viewModel)
+                            11 -> AdminProductsScreen(viewModel = viewModel)
+                            12 -> com.example.ui.screens.AdminSettingsScreen(viewModel = viewModel)
+                            13 -> com.example.ui.screens.AdminUsersScreen(viewModel = viewModel)
                         }
                     }
                 }
