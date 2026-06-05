@@ -213,6 +213,7 @@ class MainActivity : FragmentActivity() {
                             11 -> AdminProductsScreen(viewModel = viewModel)
                             12 -> com.example.ui.screens.AdminSettingsScreen(viewModel = viewModel)
                             13 -> com.example.ui.screens.AdminUsersScreen(viewModel = viewModel)
+                            14 -> com.example.ui.screens.AdminCategoriesScreen(viewModel = viewModel, onBack = { selectedTab = 0 })
                         }
                     }
                 }

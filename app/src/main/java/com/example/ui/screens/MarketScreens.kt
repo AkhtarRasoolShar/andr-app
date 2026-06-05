@@ -704,13 +704,15 @@ fun MainCatalogScreen(
         AllProductsScreen(
             viewModel = viewModel,
             onBack = { showAllProducts = false },
-            onProductClick = { activeProductForDetail = it }
+            onProductClick = { activeProductForDetail = it },
+            onNavigateToCart = { onNavigateToTab(1) }
         )
         activeProductForDetail?.let { pd ->
             ProductDetailModal(
                 product = pd,
                 viewModel = viewModel,
-                onDismiss = { activeProductForDetail = null }
+                onDismiss = { activeProductForDetail = null },
+                onBuyNow = { onNavigateToTab(1) }
             )
         }
         return
@@ -774,7 +776,7 @@ fun MainCatalogScreen(
                                                 text = { Text("Manage Categories") },
                                                 onClick = {
                                                     showAdminCategoryMenu = false
-                                                    android.widget.Toast.makeText(context, "Category Manager coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                                                    onNavigateToTab(14)
                                                 }
                                             )
                                         }
@@ -866,7 +868,8 @@ fun MainCatalogScreen(
                     ServiceCatalog()
 
                     // Category Selection Stepper/Scrollable chips
-                    val categories = listOf("All", "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+                    val categoriesListLocal by viewModel.appCategories.collectAsState()
+                    val categories = listOf("All") + categoriesListLocal.map { it.name }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1035,7 +1038,8 @@ fun MainCatalogScreen(
                                 product = item,
                                 viewModel = viewModel,
                                 onClick = { activeProductForDetail = item },
-                                onQuickAdd = { viewModel.addToCart(item) }
+                                onQuickAdd = { viewModel.addToCart(item) },
+                                onBuyNow = { onNavigateToTab(1) }
                             )
                         }
                     }
@@ -1055,7 +1059,8 @@ fun MainCatalogScreen(
         ProductDetailModal(
             product = pd,
             viewModel = viewModel,
-            onDismiss = { activeProductForDetail = null }
+            onDismiss = { activeProductForDetail = null },
+            onBuyNow = { onNavigateToTab(1) }
         )
     }
     
@@ -1137,7 +1142,8 @@ fun ProductListingCard(
     product: Product,
     viewModel: MarketViewModel,
     onClick: () -> Unit,
-    onQuickAdd: () -> Unit
+    onQuickAdd: () -> Unit,
+    onBuyNow: (() -> Unit)? = null
 ) {
     val wishlistIds by viewModel.wishlistIds.collectAsState()
     val isWishlisted = wishlistIds.contains(product.id)
@@ -1230,40 +1236,52 @@ fun ProductListingCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", product.price)}",
+                        text = "Rs. ${String.format(Locale.US, "%.2f", product.price)}",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    Button(
-                        onClick = {
-                            onQuickAdd()
-                            android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        enabled = product.stock > 0,
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .height(36.dp)
-                            .testTag("add_to_cart_btn_${product.id}"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.outline
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddShoppingCart,
-                            contentDescription = "Quick add basket",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Add",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(
+                            onClick = {
+                                onQuickAdd()
+                                android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = product.stock > 0,
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .height(36.dp)
+                                .testTag("add_to_cart_btn_${product.id}"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.outline
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddShoppingCart,
+                                contentDescription = "Quick add basket",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        
+                        if (onBuyNow != null) {
+                            Button(
+                                onClick = {
+                                    onQuickAdd()
+                                    onBuyNow()
+                                },
+                                enabled = product.stock > 0,
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.height(36.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Text("Buy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
@@ -1275,7 +1293,8 @@ fun ProductListingCard(
 fun ProductDetailModal(
     product: Product,
     viewModel: MarketViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onBuyNow: (() -> Unit)? = null
 ) {
     androidx.activity.compose.BackHandler(onBack = onDismiss)
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1429,7 +1448,7 @@ fun ProductDetailModal(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                             Text(
-                                text = "$${String.format(Locale.US, "%.2f", product.price)}",
+                                text = "Rs. ${String.format(Locale.US, "%.2f", product.price)}",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1453,7 +1472,7 @@ fun ProductDetailModal(
                             onClick = {
                                 viewModel.addToCart(product)
                                 onDismiss()
-                                // Note: we should transition to cart here maybe, but onDismiss handles the modal closing.
+                                onBuyNow?.invoke()
                             },
                             enabled = product.stock > 0,
                             shape = RoundedCornerShape(12.dp),
@@ -1798,7 +1817,7 @@ fun CartScreen(
                                     fontSize = 14.sp
                                 )
                                 Text(
-                                    text = "$${String.format(Locale.US, "%.2f", summary.total)}",
+                                    text = "Rs. ${String.format(Locale.US, "%.2f", summary.total)}",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = MaterialTheme.colorScheme.primary
@@ -2466,7 +2485,7 @@ fun CartItemRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", uiItem.product.price)}",
+                        text = "Rs. ${String.format(Locale.US, "%.2f", uiItem.product.price)}",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 13.sp
@@ -2560,8 +2579,8 @@ fun ReceiptEntry(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
         Text(
-            text = overrideText ?: if (value < 0) "-$${String.format(Locale.US, "%.2f", Math.abs(value))}" 
-                   else "$${String.format(Locale.US, "%.2f", value)}",
+            text = overrideText ?: if (value < 0) "-Rs. ${String.format(Locale.US, "%.2f", Math.abs(value))}" 
+                   else "Rs. ${String.format(Locale.US, "%.2f", value)}",
             fontWeight = FontWeight.Medium,
             fontSize = 13.sp,
             color = valueColor
@@ -2634,7 +2653,7 @@ fun CheckoutSuccessDialog(
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total Charged", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                            Text("$${String.format(Locale.US, "%.2f", order.totalAmount)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text("Rs. ${String.format(Locale.US, "%.2f", order.totalAmount)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Payment Method", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
@@ -3067,7 +3086,7 @@ fun AdminInventoryScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(
-                                        text = "$${String.format(Locale.US, "%.2f", item.price)}",
+                                        text = "Rs. ${String.format(Locale.US, "%.2f", item.price)}",
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.primary
@@ -3459,7 +3478,7 @@ fun AddEditProductDialog(
                     OutlinedTextField(
                         value = priceStr,
                         onValueChange = { priceStr = it },
-                        label = { Text("Price ($)") },
+                        label = { Text("Price (Rs)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier
                             .weight(1f)
@@ -3748,7 +3767,7 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                        text = "Rs. ${String.format(Locale.US, "%.2f", order.totalAmount)}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -3773,117 +3792,6 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Visual Status Timeline
-            val steps = listOf("Placed", "Processing", "Shipped", "Delivered")
-            val rawStatus = order.status
-            val isCancelled = rawStatus.equals("Cancelled", ignoreCase = true)
-            val currentStatus = if (rawStatus == "Pending") "Placed" else rawStatus // map to our steps
-            val currentIndex = if (isCancelled) -1 else (steps.indexOf(currentStatus).takeIf { it >= 0 } ?: 0)
-
-            val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition()
-            val pulseAlpha by infiniteTransition.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 1f,
-                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                    animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                )
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                if (isCancelled) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFD32F2F)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancelled", tint = Color.White, modifier = Modifier.size(18.dp))
-                        }
-                        Text(
-                            text = "Cancelled",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFD32F2F),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                } else {
-                    steps.forEachIndexed { index, step ->
-                        val isCompleted = index < currentIndex
-                        val isActive = index == currentIndex
-                        val isFuture = index > currentIndex
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                // Left line segment
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(2.dp)
-                                        .background(
-                                            if (index == 0) Color.Transparent
-                                            else if (index <= currentIndex) MaterialTheme.colorScheme.primary
-                                            else Color(0xFFE0E0E0)
-                                        )
-                                )
-                                // Circle
-                                Box(
-                                    modifier = Modifier
-                                        .size(if (isActive) 28.dp else 24.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isCompleted) MaterialTheme.colorScheme.primary
-                                            else if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha)
-                                            else Color(0xFFE0E0E0)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isCompleted) {
-                                        Icon(Icons.Default.Check, contentDescription = "Done", tint = Color.White, modifier = Modifier.size(16.dp))
-                                    } else if (isActive) {
-                                        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Color.White))
-                                    }
-                                }
-                                // Right line segment
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(2.dp)
-                                        .background(
-                                            if (index == steps.size - 1) Color.Transparent
-                                            else if (isCompleted) MaterialTheme.colorScheme.primary
-                                            else Color(0xFFE0E0E0)
-                                        )
-                                )
-                            }
-                            
-                            Text(
-                                text = step,
-                                fontSize = 11.sp,
-                                fontWeight = if (isActive || isCompleted) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isActive) MaterialTheme.colorScheme.primary else if (isCompleted) MaterialTheme.colorScheme.onSurface else Color.Gray,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -3992,7 +3900,7 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
                     color = MaterialTheme.colorScheme.secondary
                 )
                 Text(
-                    text = "Total: $${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                    text = "Total: Rs. ${String.format(Locale.US, "%.2f", order.totalAmount)}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.primary
@@ -4002,7 +3910,7 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
             Spacer(modifier = Modifier.height(16.dp))
             
             Button(
-                onClick = { /* No-Op for now, just visual */ },
+                onClick = { onClick?.invoke() },
                 modifier = Modifier.fillMaxWidth().height(40.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -4046,7 +3954,7 @@ fun AdminDashboardChart(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(12.dp).background(primaryColor, androidx.compose.foundation.shape.CircleShape))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Revenue ($)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Revenue (Rs)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(12.dp).background(secondaryColor, androidx.compose.foundation.shape.CircleShape))
@@ -4173,9 +4081,9 @@ fun ServiceCatalog() {
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ServiceCard("Dry Cleaning", "From $5.00/item", Icons.Default.Checkroom)
-        ServiceCard("Laundry", "From $2.50/lb", Icons.Default.LocalLaundryService)
-        ServiceCard("Carpet Restoration", "From $25.00/sqft", Icons.Default.CleaningServices)
+        ServiceCard("Dry Cleaning", "From Rs. 500/item", Icons.Default.Checkroom)
+        ServiceCard("Laundry", "From Rs. 250/lb", Icons.Default.LocalLaundryService)
+        ServiceCard("Carpet Restoration", "From Rs. 2500/sqft", Icons.Default.CleaningServices)
     }
 }
 
@@ -4250,7 +4158,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = product.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(text = "Price: $${product.price}", style = MaterialTheme.typography.bodyMedium)
+                            Text(text = "Price: Rs. ${product.price}", style = MaterialTheme.typography.bodyMedium)
                             Text(text = "Stock: ${product.stock}", style = MaterialTheme.typography.bodySmall, color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                         }
                         IconButton(onClick = { editCandidate = product }) {
@@ -4454,10 +4362,14 @@ fun PickupScheduler(
 fun AllProductsScreen(
     viewModel: MarketViewModel,
     onBack: () -> Unit,
-    onProductClick: (Product) -> Unit
+    onProductClick: (Product) -> Unit,
+    onNavigateToCart: () -> Unit
 ) {
     val products by viewModel.productsState.collectAsState()
-    
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val selectedCat by viewModel.selectedCategory.collectAsState()
+    val categoriesList by viewModel.appCategories.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -4470,35 +4382,93 @@ fun AllProductsScreen(
             )
         }
     ) { padding ->
-        if (products.isEmpty()) {
-            Box(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
+                placeholder = { Text("Search products...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                leadingIcon = { Icon(Icons.Default.Search, "Search icon", tint = MaterialTheme.colorScheme.primary) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.updateSearchQuery("") },
+                            modifier = Modifier.testTag("clear_search_btn")
+                        ) {
+                            Icon(Icons.Default.Clear, "Clear trigger", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("all_products_search_bar"),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
+
+            // Category Chips
+            val categories = listOf("All") + categoriesList.map { it.name }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("No products available", style = MaterialTheme.typography.bodyLarge)
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(
-                    bottom = 24.dp,
-                    start = 16.dp, 
-                    end = 16.dp, 
-                    top = padding.calculateTopPadding() + 8.dp
-                ),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(products, key = { it.id }) { item ->
-                    ProductListingCard(
-                        product = item,
-                        viewModel = viewModel,
-                        onClick = { onProductClick(item) },
-                        onQuickAdd = { viewModel.addToCart(item) }
+                categories.forEach { cat ->
+                    val isSelected = selectedCat.lowercase() == cat.lowercase()
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.selectCategory(cat) },
+                        shape = RoundedCornerShape(50),
+                        label = { 
+                            Text(
+                                text = cat,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            ) 
+                        },
+                        modifier = Modifier.testTag("category_chip_$cat")
                     )
+                }
+            }
+
+            if (products.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No products match your criteria", style = MaterialTheme.typography.bodyLarge)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(
+                        bottom = 24.dp,
+                        start = 16.dp, 
+                        end = 16.dp, 
+                        top = 8.dp
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.fillMaxSize().weight(1f)
+                ) {
+                    items(products, key = { it.id }) { item ->
+                        ProductListingCard(
+                            product = item,
+                            viewModel = viewModel,
+                            onClick = { onProductClick(item) },
+                            onQuickAdd = { viewModel.addToCart(item) },
+                            onBuyNow = onNavigateToCart
+                        )
+                    }
                 }
             }
         }

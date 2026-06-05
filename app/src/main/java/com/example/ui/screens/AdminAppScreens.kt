@@ -1,11 +1,15 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,12 +18,13 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.example.viewmodel.MarketViewModel
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AdminOrdersScreen(viewModel: MarketViewModel) {
     var orders by remember { mutableStateOf<List<com.example.network.NetworkOrder>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         try {
@@ -41,63 +46,111 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Manage Orders", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (orders.isEmpty()) {
-            Text("No orders pending.")
-        } else {
-            androidx.compose.foundation.lazy.LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(orders.size) { index ->
-                    val order = orders[index]
-                    var currentStatus by remember { mutableStateOf(order.status) }
-                    var isDropdownExpanded by remember { mutableStateOf(false) }
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Order ID: ${order.id}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            Text("Total: $${order.totalAmount}")
-                            Text("Created: ${order.createdAt}", style = MaterialTheme.typography.bodySmall)
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Status: $currentStatus", color = MaterialTheme.colorScheme.primary)
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            Text("Manage Orders & Dashboard", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Dashboard Chart
+            if (orders.isNotEmpty()) {
+                val totalRevenue = orders.filter { !it.status.equals("Cancelled", ignoreCase = true) }.sumOf { it.totalAmount }
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("30-Day Overview", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("Total Revenue", color = MaterialTheme.colorScheme.outline)
+                                Text("Rs. ${String.format(java.util.Locale.US, "%.2f", totalRevenue)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Total Orders", color = MaterialTheme.colorScheme.outline)
+                                Text("${orders.size}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        
+                        // Fake Bar Chart with Canvas
+                        Spacer(modifier = Modifier.height(16.dp))
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+                            val barWidth = 24.dp.toPx()
+                            val spacing = 16.dp.toPx()
+                            val maxBarHeight = size.height
                             
-                            Box {
-                                OutlinedButton(onClick = { isDropdownExpanded = true }) {
-                                    Text("Change Status")
-                                }
-                                DropdownMenu(
-                                    expanded = isDropdownExpanded,
-                                    onDismissRequest = { isDropdownExpanded = false }
-                                ) {
-                                    listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
-                                        DropdownMenuItem(
-                                            text = { Text(status) },
-                                            onClick = {
-                                                isDropdownExpanded = false
-                                                currentStatus = status
-                                                scope.launch {
-                                                    val request = com.example.network.AdminMasterRequest(
-                                                        action = "update_order_status",
-                                                        orderId = order.id.toIntOrNull(), // API takes Int for Order ID, but order.id might be string? Assuming Int backend or modifying to check.
-                                                        status = status
-                                                    )
-                                                    val res = viewModel.sendAdminCommand(request)
-                                                    if (res?.status == "success") {
-                                                        android.widget.Toast.makeText(context, "Status Updated", android.widget.Toast.LENGTH_SHORT).show()
-                                                    } else {
-                                                        android.widget.Toast.makeText(context, "Failed to update", android.widget.Toast.LENGTH_SHORT).show()
+                            val dummyData = listOf(0.4f, 0.7f, 0.3f, 0.8f, 0.5f, 0.9f, 0.6f)
+                            val totalWidth = (dummyData.size * barWidth) + ((dummyData.size - 1) * spacing)
+                            val startX = (size.width - totalWidth) / 2
+                            
+                            dummyData.forEachIndexed { index, fillPercent ->
+                                val x = startX + (index * (barWidth + spacing))
+                                val barHeight = maxBarHeight * fillPercent
+                                val y = size.height - barHeight
+                                
+                                drawRect(
+                                    color = androidx.compose.ui.graphics.Color(0xFF4CAF50).copy(alpha = 0.8f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (orders.isEmpty()) {
+                Text("No orders pending.")
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(orders.size) { index ->
+                        val order = orders[index]
+                        var currentStatus by remember { mutableStateOf(order.status) }
+                        var isDropdownExpanded by remember { mutableStateOf(false) }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Order ID: ${order.id}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Text("Total: Rs. ${order.totalAmount}")
+                                Text("Created: ${order.createdAt}", style = MaterialTheme.typography.bodySmall)
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Status: $currentStatus", color = MaterialTheme.colorScheme.primary)
+                                
+                                Box {
+                                    OutlinedButton(onClick = { isDropdownExpanded = true }) {
+                                        Text("Change Status")
+                                    }
+                                    DropdownMenu(
+                                        expanded = isDropdownExpanded,
+                                        onDismissRequest = { isDropdownExpanded = false }
+                                    ) {
+                                        listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
+                                            DropdownMenuItem(
+                                                text = { Text(status) },
+                                                onClick = {
+                                                    isDropdownExpanded = false
+                                                    currentStatus = status
+                                                    scope.launch {
+                                                        val request = com.example.network.AdminMasterRequest(
+                                                            action = "update_order_status",
+                                                            orderId = order.id.toIntOrNull(),
+                                                            status = status
+                                                        )
+                                                        val res = viewModel.sendAdminCommand(request)
+                                                        if (res?.status == "success") {
+                                                            snackbarHostState.showSnackbar("Order status updated successfully!")
+                                                        } else {
+                                                            snackbarHostState.showSnackbar("Failed to update order status.")
+                                                        }
                                                     }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -118,9 +171,10 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
     var primaryColor by remember { mutableStateOf("#4CAF50") }
     
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -135,9 +189,9 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                         )
                         val res = viewModel.sendAdminCommand(request)
                         if (res?.status == "success") {
-                            android.widget.Toast.makeText(context, "Settings Updated!", android.widget.Toast.LENGTH_SHORT).show()
+                            snackbarHostState.showSnackbar("Settings Updated!")
                         } else {
-                            android.widget.Toast.makeText(context, "Failed to update", android.widget.Toast.LENGTH_SHORT).show()
+                            snackbarHostState.showSnackbar("Failed to update settings.")
                         }
                     }
                 }
@@ -183,7 +237,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                     OutlinedTextField(
                         value = deliveryFee,
                         onValueChange = { deliveryFee = it },
-                        label = { Text("Base Delivery Fee ($)") },
+                        label = { Text("Base Delivery Fee (Rs)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -261,6 +315,103 @@ fun AdminUsersScreen(viewModel: MarketViewModel) {
                             }
                         ) {
                             Text(if (user.role == "customer") "Make Admin" else "Revoke Admin", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun AdminCategoriesScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
+    val categories by viewModel.appCategories.collectAsState()
+    var newCategoryName by remember { mutableStateOf("") }
+    var selectedIcon by remember { mutableStateOf("Star") }
+    val builtinIcons = listOf("Star", "LocalLaundryService", "Iron", "DryCleaning", "Checkroom", "HomeRepairService")
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Manage Categories") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newCategoryName,
+                        onValueChange = { newCategoryName = it },
+                        label = { Text("New Category") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (newCategoryName.isNotBlank()) {
+                                viewModel.addCategory(newCategoryName.trim(), selectedIcon)
+                                newCategoryName = ""
+                            }
+                        }
+                    ) {
+                        Text("Add")
+                    }
+                }
+                
+                // Icon Picker
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Select Icon:", style = MaterialTheme.typography.labelMedium)
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    builtinIcons.forEach { iconName ->
+                        val isSelected = selectedIcon == iconName
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedIcon = iconName },
+                            label = { Text(iconName, fontSize = 12.sp) }
+                        )
+                    }
+                }
+            }
+
+            androidx.compose.foundation.lazy.LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categories.size) { idx ->
+                    val cat = categories[idx]
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Dummy visual for icon (in real app map string to ImageVector)
+                                Box(
+                                    modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(cat.iconName.take(1), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(cat.name, style = MaterialTheme.typography.bodyLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            }
+                            IconButton(onClick = { viewModel.deleteCategory(cat.name) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }

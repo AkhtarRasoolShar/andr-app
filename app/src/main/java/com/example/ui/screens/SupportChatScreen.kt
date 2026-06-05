@@ -109,9 +109,9 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                                 val body = response.body()
                                                 val replyMsg = if (response.isSuccessful && body?.success == true && !body.orders.isNullOrEmpty()) {
                                                     val order = body.orders.first()
-                                                    "Order $orderId status is: ${order.status}. Date: ${order.createdAt}. Total: $${order.totalAmount}."
+                                                    "Order $orderId status is: ${order.status}. Date: ${order.createdAt}. Total: Rs. ${order.totalAmount}."
                                                 } else {
-                                                    "Sorry, I could not find an order with ID $orderId."
+                                                    "Maazrat, humein is ID $orderId ka order nahi mila."
                                                 }
                                                 // Switch to main to update ui state safely
                                                 withContext(Dispatchers.Main) {
@@ -119,21 +119,21 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                                 }
                                             } catch(e: Exception) {
                                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                    messages.add(ChatMessage("Sorry, an error occurred while looking up that order.", false))
+                                                    messages.add(ChatMessage("Maazrat, order check karte waqt masla paish aaya.", false))
                                                 }
                                             }
                                         }
                                     } catch(e: Exception) {
-                                        messages.add(ChatMessage("That doesn't look like a valid order ID.", false))
+                                        messages.add(ChatMessage("Yeh order ID theek nahi lag rahi.", false))
                                     }
                                     return@IconButton
                                 }
 
                                 val keywordMap = mapOf(
-                                    listOf("delivery", "shipping") to "delivery_fee",
+                                    listOf("delivery", "shipping", "deliver") to "delivery_fee",
                                     listOf("cod", "cash") to "cod_enabled",
-                                    listOf("hour", "time", "hours") to "working_hours",
-                                    listOf("location", "where", "branch", "locations") to "store_locations",
+                                    listOf("hour", "time", "hours", "waqt") to "working_hours",
+                                    listOf("location", "where", "branch", "locations", "kahan") to "store_locations",
                                     listOf("tip", "laundry", "wash", "tips") to "care_tips"
                                 )
                                 
@@ -150,17 +150,21 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
 
                                 val reply = matchedReply ?: when {
                                     lower.contains("status") || lower.contains("track") ->
-                                        "You can track your order status in the 'Orders' tab of your profile. Or simply send me 'Order ID <number>'."
+                                        "Aap apna order 'Orders' tab mein track kar sakte hain ya apna 'Order ID <number>' bhejien."
                                     lower.contains("order") ->
-                                        "To view your order details, check the 'Orders' section in your profile. You can also send me 'Order ID <number>'."
+                                        "Apne orders dekhne ke liye profile mein 'Orders' section check karein. Aap 'Order ID <number>' bhi bhej sakte hain."
                                     lower.contains("return") || lower.contains("refund") ->
-                                        "We offer a 30-day return policy for unused items in their original packaging."
-                                    lower.contains("payment") || lower.contains("card") ->
-                                        "We accept COD, major credit cards, and digital wallets for your convenience."
-                                    lower.contains("discount") || lower.contains("promo") ->
-                                        "Keep an eye on our app for special promotions! Join the loyalty club for exclusive discounts."
+                                        "Humari 30-day return policy hai. Agar koi masla ho to aap item wapas kar sakte hain."
+                                    lower.contains("payment") || lower.contains("card") || lower.contains("pay") ->
+                                        "Hum COD, credit cards, bank transfer aur JazzCash/Easypaisa qabool karte hain."
+                                    lower.contains("discount") || lower.contains("promo") || lower.contains("sale") ->
+                                        "New discounts ke liye app check karte rahien!"
+                                    lower.contains("hi") || lower.contains("hello") || lower.contains("salam") ->
+                                        "Assalam o Alaikum! Snowwhite me khush aamdeed. Me aapki kya madad kar sakta hu?"
+                                    lower.contains("price") || lower.contains("rate") || lower.contains("qeemat") ->
+                                        "Hamari services ke rates (prices) app mein services list mein mojood hain."
                                     else ->
-                                        "I am your virtual assistant! You can ask me about delivery fees, COD, returns, locations, working hours, order tracking, or call our support at ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
+                                        "Me ek virtual assistant hu! Aap mujhse delivery, timing, branches, payment, ya order status ke baray me pooch sakte hain, ya humein call karein: ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
                                 }
                                 messages.add(ChatMessage(reply, false))
                             }

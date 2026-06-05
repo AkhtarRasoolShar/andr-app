@@ -1454,29 +1454,43 @@ fun ReceiptDetailDialog(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // Parse the items summary
-                        val lines = order.itemsSummary.split(", ")
+                        val lines = order.itemsSummary.split("\n", ", ")
                         lines.forEach { line ->
-                            val parts = line.split(" x")
-                            val title = parts.getOrNull(0) ?: line
-                            val qty = parts.getOrNull(1) ?: "1"
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = "x$qty",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            // Support "2x Title" and "Title x2"
+                            val cleanLine = line.trim()
+                            val prefixQuantityMatcher = Regex("^(\\d+)x\\s+(.*)").matchEntire(cleanLine)
+                            val title: String
+                            val qty: String
+                            
+                            if (prefixQuantityMatcher != null) {
+                                qty = prefixQuantityMatcher.groupValues[1]
+                                title = prefixQuantityMatcher.groupValues[2]
+                            } else {
+                                val parts = cleanLine.split(" x")
+                                title = parts.getOrNull(0) ?: cleanLine
+                                qty = parts.getOrNull(1) ?: "1"
+                            }
+                            
+                            if (cleanLine.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = "x$qty",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
 

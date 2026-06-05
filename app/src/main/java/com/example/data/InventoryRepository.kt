@@ -13,6 +13,15 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
     val allUserProfiles: Flow<List<UserProfile>> = dao.getAllUserProfilesFlow()
     val wishlistIds: Flow<List<Int>> = dao.getWishlistFlow()
     val savedAddresses: Flow<List<SavedAddress>> = dao.getSavedAddressesFlow()
+    val allCategories: Flow<List<AppCategory>> = dao.getAllCategoriesFlow()
+
+    suspend fun addCategoryLocal(name: String, iconName: String = "Star") {
+        dao.insertCategory(AppCategory(name, iconName))
+    }
+
+    suspend fun deleteCategoryLocal(name: String) {
+        dao.deleteCategory(AppCategory(name))
+    }
 
     suspend fun uploadProduct(
         title: String,

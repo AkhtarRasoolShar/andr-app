@@ -56,6 +56,12 @@ data class WishlistItem(
     @PrimaryKey val productId: Int
 )
 
+@Entity(tableName = "app_categories")
+data class AppCategory(
+    @PrimaryKey val name: String,
+    val iconName: String = "Star"
+)
+
 @Entity(tableName = "saved_addresses")
 data class SavedAddress(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -152,4 +158,14 @@ interface MarketplaceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSavedAddress(address: SavedAddress)
+
+    // Categories
+    @Query("SELECT * FROM app_categories ORDER BY name ASC")
+    fun getAllCategoriesFlow(): Flow<List<AppCategory>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategory(category: AppCategory)
+
+    @Delete
+    suspend fun deleteCategory(category: AppCategory)
 }
