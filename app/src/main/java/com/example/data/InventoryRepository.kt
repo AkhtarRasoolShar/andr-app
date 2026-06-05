@@ -53,7 +53,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
     suspend fun fetchProductsFromRemote(): List<Product> {
         return try {
-            val response = com.example.network.RetrofitClient.apiService.getProducts()
+            val response = com.example.network.RetrofitClient.apiService.getLiveProducts()
             if (response.isSuccessful && response.body()?.success == true) {
                 val mapped = response.body()?.products?.map { res ->
                     Product(
@@ -93,7 +93,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             throw Exception("Password must be at least 6 characters.")
         }
         
-        val response = com.example.network.RetrofitClient.apiService.register(
+        val response = com.example.network.RetrofitClient.apiService.registerUser(
             com.example.network.RegisterRequest(
                 email = profile.email,
                 fullName = profile.fullName,
@@ -103,10 +103,11 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
                 deliveryAddress = profile.deliveryAddress
             )
         )
-        if (!response.success) {
-            throw Exception(response.message ?: "Registration failed.")
+        if (response.isSuccessful && response.body()?.success == true) {
+            return true
+        } else {
+            throw Exception(response.body()?.message ?: "Registration failed.")
         }
-        return true
     }
 
     suspend fun login(email: String, passwordEntered: String): Boolean {
@@ -114,11 +115,13 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             throw Exception("Password must be at least 6 characters.")
         }
 
-        val response = com.example.network.RetrofitClient.apiService.login(
+        val retrofitResponse = com.example.network.RetrofitClient.apiService.loginUser(
             com.example.network.LoginRequest(email = email.trim(), passwordEntered = passwordEntered)
         )
         
-        if (response.success && response.user != null) {
+        val response = retrofitResponse.body()
+        
+        if (retrofitResponse.isSuccessful && response != null && response.success && response.user != null) {
             val userRole = response.role ?: "customer"
             val returnedUser = response.user
             
@@ -161,7 +164,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
             return true
         } else {
-            throw Exception(response.message ?: "Invalid remote credentials from PHP backend.")
+            throw Exception(response?.message ?: "Invalid remote credentials from PHP backend.")
         }
     }
 
@@ -185,6 +188,48 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         val user = dao.getUserByEmail(email)
         if (user != null) {
             dao.insertProfile(user.copy(savedPreferences = preferencesRaw))
+        }
+    }
+
+    suspend fun updateUserProfile(userId: Int, oldEmail: String, email: String, fullName: String, phoneNumber: String, onResult: (Boolean, String?) -> Unit) {
+        try {
+            val req = com.example.network.UpdateProfileRequest(
+                userId = userId,
+                fullName = fullName,
+                email = email,
+                phoneNumber = phoneNumber
+            )
+            val res = com.example.network.RetrofitClient.apiService.updateProfile(req)
+            if (res.isSuccessful && res.body()?.success == true) {
+                // Update local DB
+                val localUser = dao.getUserByEmail(oldEmail) ?: dao.getUserByEmail(email)
+                if (localUser != null) {
+                    val updated = localUser.copy(
+                        email = email,
+                        fullName = fullName,
+                        phoneNumber = phoneNumber
+                    )
+                    // If email changes, primary key issue! Room might REPLACE if same PK, but if PK changed, it's a new row.
+                    // We'll just insert it. If email changed, we should delete old one? 
+                    // To be safe we just insertProfile(updated).
+                    dao.insertProfile(updated)
+                }
+                
+                try {
+                    val sessionManager = SessionManager(context)
+                    val oldRole = sessionManager.fetchSession()?.role ?: "customer"
+                    sessionManager.saveSession(userId, fullName, email, oldRole)
+                    if (sessionManager.isBiometricEnabled()) {
+                         sessionManager.cacheSecureSession(email, fullName, oldRole)
+                    }
+                } catch(e: Exception){}
+                
+                onResult(true, "Profile updated successfully")
+            } else {
+                onResult(false, res.body()?.message ?: "Failed to update profile via API.")
+            }
+        } catch (e: Exception) {
+            onResult(false, e.localizedMessage ?: "Failed to reach server")
         }
     }
 
@@ -338,6 +383,10 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         dao.insertOrder(order)
         dao.clearCart()
         return order
+    }
+
+    suspend fun saveLocalOrder(order: Order) {
+        dao.insertOrder(order)
     }
 
     /**

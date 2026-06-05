@@ -236,6 +236,56 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
+                
+                // Force Update Check
+                var showUpdateDialog by remember { mutableStateOf(false) }
+                var finalDownloadLink by remember { mutableStateOf("") }
+                
+                LaunchedEffect(viewModel.latestAppVersion) {
+                    try {
+                        val remoteVersionStr = viewModel.latestAppVersion
+                        if (!remoteVersionStr.isNullOrBlank()) {
+                            val localVersion = com.example.BuildConfig.VERSION_NAME
+                            val remoteFloat = remoteVersionStr.toFloatOrNull()
+                            val localFloat = localVersion.toFloatOrNull()
+                            if (remoteFloat != null && localFloat != null && remoteFloat > localFloat) {
+                                val dlLink = viewModel.appDownloadLink
+                                if (!dlLink.isNullOrBlank()) {
+                                    finalDownloadLink = dlLink
+                                    showUpdateDialog = true
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        showUpdateDialog = false
+                    }
+                }
+                
+                if (showUpdateDialog) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { },
+                        properties = androidx.compose.ui.window.DialogProperties(
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false
+                        ),
+                        title = { androidx.compose.material3.Text("Update Required") },
+                        text = { androidx.compose.material3.Text("A new version of SnowWhite is available with exciting new features. Please update to continue.") },
+                        confirmButton = {
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(finalDownloadLink)
+                                    )
+                                    context.startActivity(intent)
+                                }
+                            ) {
+                                androidx.compose.material3.Text("Download Update")
+                            }
+                        }
+                    )
+                }
             }
         }
     }

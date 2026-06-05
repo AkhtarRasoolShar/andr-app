@@ -1023,7 +1023,14 @@ fun ProductListingCard(
     ) {
         Column {
             Box {
-                ProceduralCraftImage(category = product.category, subkey = product.imageUrl)
+                coil.compose.AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
                 
                 // Real-time stock count alerts
                 Box(
@@ -1154,10 +1161,13 @@ fun ProductDetailModal(
                     .verticalScroll(rememberScrollState())
             ) {
                 Box {
-                    ProceduralCraftImage(
-                        category = product.category,
-                        subkey = product.imageUrl,
-                        modifier = Modifier.height(180.dp)
+                    coil.compose.AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.title,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                     IconButton(
                         onClick = onDismiss,
@@ -1220,6 +1230,54 @@ fun ProductDetailModal(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                         lineHeight = 20.sp
                     )
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Simple Mock Reviews Section
+                    Text(
+                        text = "Customer Reviews",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        val sampleReviews = listOf(
+                            "Great service! They picked up on time.",
+                            "The cleaning quality was fantastic. Very satisfied.",
+                            "Item arrived perfectly. Thank you!"
+                        )
+                        sampleReviews.forEachIndexed { idx, reviewText ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier.size(24.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("U${idx+1}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("User ${idx+1}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        Row {
+                                            repeat(5) {
+                                                Icon(Icons.Default.Star, "Star", tint = if (it < (5 - idx)) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), modifier = Modifier.size(12.dp))
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(reviewText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -2196,10 +2254,11 @@ fun CartItemRow(
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.tertiaryContainer)
             ) {
-                ProceduralCraftImage(
-                    category = uiItem.product.category,
-                    subkey = uiItem.product.imageUrl,
-                    modifier = Modifier.size(56.dp)
+                coil.compose.AsyncImage(
+                    model = uiItem.product.imageUrl,
+                    contentDescription = uiItem.product.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
             }
 
@@ -2384,7 +2443,7 @@ fun CheckoutSuccessDialog(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Transaction ID", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                            Text("Tracking / Order ID", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                             Text(order.id, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -2767,12 +2826,13 @@ fun AdminInventoryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            ProceduralCraftImage(
-                                category = item.category,
-                                subkey = item.imageUrl,
+                            coil.compose.AsyncImage(
+                                model = item.imageUrl,
+                                contentDescription = item.title,
                                 modifier = Modifier
                                     .size(50.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
 
                             Spacer(modifier = Modifier.width(12.dp))
@@ -3345,17 +3405,10 @@ fun OrdersScreen(
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Please login to see your orders",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { onNavigateToTab(4) }) {
-                        Text("Go to Login")
-                    }
-                }
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
             }
         } else if (orders!!.isEmpty()) {
             Box(
@@ -3397,16 +3450,36 @@ fun OrdersScreen(
                 }
             }
         } else {
-            LazyColumn(
+            var trackingQuery by remember { mutableStateOf("") }
+            val displayOrders = if (trackingQuery.isBlank()) orders!! else orders!!.filter { it.id.contains(trackingQuery, ignoreCase = true) }
+
+            Column(
                 modifier = Modifier
+                    .fillMaxSize()
                     .weight(1f)
-                    .padding(horizontal = 16.dp)
-                    .testTag("orders_list"),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
             ) {
-                items(orders!!, key = { it.id }) { ord ->
-                    OrderHistoryCard(order = ord)
+                OutlinedTextField(
+                    value = trackingQuery,
+                    onValueChange = { trackingQuery = it },
+                    placeholder = { Text("Track your order (e.g. SNOW-...)") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Tracking ID") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(24.dp)
+                )
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                        .testTag("orders_list"),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    items(displayOrders, key = { it.id }) { ord ->
+                        OrderHistoryCard(order = ord)
+                    }
                 }
             }
         }

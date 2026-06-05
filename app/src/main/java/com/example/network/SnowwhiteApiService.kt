@@ -119,6 +119,20 @@ data class OrderResponse(
     @Json(name = "order_id") val orderId: String? = null
 )
 
+data class GuestOrderRequest(
+    @Json(name = "tracking_id") val trackingId: String,
+    @Json(name = "guest_name") val guestName: String,
+    @Json(name = "phone_number") val phoneNumber: String,
+    @Json(name = "delivery_address") val deliveryAddress: String,
+    @Json(name = "total_amount") val totalAmount: Double,
+    @Json(name = "payment_method") val paymentMethod: String
+)
+
+data class ApiResponse(
+    val status: String?,
+    val message: String?
+)
+
 data class OrderHistoryResponse(
     val success: Boolean,
     val orders: List<NetworkOrder>?
@@ -172,6 +186,20 @@ data class WishlistToggleResponse(
 data class SettingsResponse(
     val success: Boolean,
     val settings: Map<String, String>? = null,
+    val message: String? = null,
+    @Json(name = "latest_app_version") val latestAppVersion: String? = null,
+    @Json(name = "app_download_link") val appDownloadLink: String? = null
+)
+
+data class UpdateProfileRequest(
+    @Json(name = "user_id") val userId: Int,
+    @Json(name = "full_name") val fullName: String,
+    val email: String,
+    @Json(name = "phone_number") val phoneNumber: String
+)
+
+data class UpdateProfileResponse(
+    val success: Boolean,
     val message: String? = null
 )
 
@@ -180,16 +208,22 @@ interface SnowwhiteApi {
     suspend fun logVisitor(): retrofit2.Response<Unit>
 
     @POST("login.php")
-    suspend fun login(@Body request: LoginRequest): LoginResponse
+    suspend fun loginUser(@Body request: LoginRequest): retrofit2.Response<LoginResponse>
 
     @POST("register.php")
-    suspend fun register(@Body request: RegisterRequest): RegisterResponse
+    suspend fun registerUser(@Body request: RegisterRequest): retrofit2.Response<RegisterResponse>
+
+    @POST("update_profile.php")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): retrofit2.Response<UpdateProfileResponse>
 
     @POST("update_fcm.php")
     suspend fun updateFcmToken(@Body request: FcmTokenRequest): FcmTokenResponse
 
     @GET("get_products.php")
-    suspend fun getProducts(): retrofit2.Response<ProductListResponse>
+    suspend fun getLiveProducts(): retrofit2.Response<ProductListResponse>
+    
+    @POST("sync_guest_order.php")
+    suspend fun syncGuestOrder(@Body request: GuestOrderRequest): retrofit2.Response<ApiResponse>
 
     @POST("add_product.php")
     suspend fun addProduct(@Body request: AddProductRequest): AddProductResponse

@@ -149,7 +149,8 @@ fun ProfileScreen(
                 },
                 onUpdatePreferences = { newPrefs ->
                     viewModel.updateSavedPreferences(newPrefs)
-                }
+                },
+                onNavigateToTab = onNavigateToTab
             )
         } else {
             // Unauthenticated view showing beautiful Sign Up / Sign In Forms
@@ -519,7 +520,8 @@ fun UserProfileCard(
     allOrders: List<com.example.data.Order>,
     viewModel: MarketViewModel,
     onLogout: () -> Unit,
-    onUpdatePreferences: (String) -> Unit
+    onUpdatePreferences: (String) -> Unit,
+    onNavigateToTab: (Int) -> Unit
 ) {
     var selectedReceiptOrder by remember { mutableStateOf<com.example.data.Order?>(null) }
     val savedAddresses by viewModel.savedAddresses.collectAsState()
@@ -528,6 +530,8 @@ fun UserProfileCard(
     var newAddressTitle by remember { mutableStateOf("") }
     var newAddressStr by remember { mutableStateOf("") }
     var newAddressPhone by remember { mutableStateOf("") }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     if (isAddingAddress) {
         AlertDialog(
@@ -708,6 +712,90 @@ fun UserProfileCard(
             ProfileDataRow(label = "Membership Region", value = user.city, icon = Icons.Default.LocationCity)
             ProfileDataRow(label = "Delivery Destination", value = user.deliveryAddress, icon = Icons.Default.HomeWork)
 
+            Spacer(modifier = Modifier.height(12.dp))
+            var isEditingProfile by remember { mutableStateOf(false) }
+            
+            OutlinedButton(
+                onClick = { isEditingProfile = true },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Edit, "Edit Profile", modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Edit Profile Details", fontWeight = FontWeight.Bold)
+            }
+            
+            if (isEditingProfile) {
+                var editName by remember { mutableStateOf(user.fullName) }
+                var editEmail by remember { mutableStateOf(user.email) }
+                var editPhone by remember { mutableStateOf(user.phoneNumber) }
+                var isSavingProfile by remember { mutableStateOf(false) }
+                
+                AlertDialog(
+                    onDismissRequest = { if (!isSavingProfile) isEditingProfile = false },
+                    title = { Text("Edit Profile") },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = editName,
+                                onValueChange = { editName = it },
+                                label = { Text("Full Name") },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            )
+                            OutlinedTextField(
+                                value = editEmail,
+                                onValueChange = { editEmail = it },
+                                label = { Text("Email") },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            )
+                            OutlinedTextField(
+                                value = editPhone,
+                                onValueChange = { editPhone = it },
+                                label = { Text("Phone Number") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (editName.isNotBlank() && editEmail.isNotBlank() && editPhone.isNotBlank()) {
+                                    isSavingProfile = true
+                                    val sessionManager = com.example.data.SessionManager(context)
+                                    val session = sessionManager.fetchSession()
+                                    if (session != null) {
+                                        viewModel.updateUserProfile(session.userId, user.email, editEmail, editName, editPhone) { success, msg ->
+                                            isSavingProfile = false
+                                            if (success) {
+                                                isEditingProfile = false
+                                            } else {
+                                                // Could show toast or error msg
+                                            }
+                                        }
+                                    } else {
+                                        isSavingProfile = false
+                                        isEditingProfile = false
+                                    }
+                                }
+                            },
+                            enabled = !isSavingProfile
+                        ) {
+                            if (isSavingProfile) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { isEditingProfile = false },
+                            enabled = !isSavingProfile
+                        ) { Text("Cancel") }
+                    }
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             Spacer(modifier = Modifier.height(12.dp))
@@ -720,7 +808,6 @@ fun UserProfileCard(
                 letterSpacing = 1.sp
             )
             
-            val context = androidx.compose.ui.platform.LocalContext.current
             val sessionManager = remember { com.example.data.SessionManager(context) }
             var biometricEnabled by remember { mutableStateOf(sessionManager.isBiometricEnabled()) }
             
@@ -753,6 +840,46 @@ fun UserProfileCard(
                         }
                     }
                 )
+            }
+            
+            // App Notifications Settings
+            var notificationsEnabled by remember { mutableStateOf(true) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Push Notifications",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Receive alerts for order status & promos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = { notificationsEnabled = it }
+                )
+            }
+            
+            // Help & Support Button (Help Center)
+            OutlinedButton(
+                onClick = { onNavigateToTab(5) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.HelpOutline, "Help center", modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("FAQ & Help Center", fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(16.dp))

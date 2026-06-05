@@ -158,13 +158,21 @@ class MarketViewModel(
     fun loadOrders() {
         val sessionManager = com.example.data.SessionManager(getApplication())
         val session = sessionManager.fetchSession()
+        
         if (session == null || session.userId <= 0) {
-            _ordersState.value = null // Means not logged in
+            viewModelScope.launch {
+                repository.allOrders.collect { localList ->
+                    _ordersState.value = localList
+                }
+            }
             return
         }
         
         viewModelScope.launch {
             try {
+                // First gather local orders so they aren't lost immediately
+                var localAndNetworkOrders: MutableList<com.example.data.Order> = mutableListOf()
+                
                 val response = com.example.network.RetrofitClient.apiService.getMyOrders(session.userId)
                 if (response.isSuccessful && response.body()?.success == true) {
                     val networkOrders = response.body()?.orders ?: emptyList()
@@ -180,12 +188,14 @@ class MarketViewModel(
                             shippingAddress = "Delivery Address" // placeholder for local UI requirement
                         )
                     }
-                    _ordersState.value = orderList
-                } else {
-                    _ordersState.value = emptyList() // Fallback empty
+                    localAndNetworkOrders.addAll(orderList)
                 }
+                
+                _ordersState.value = localAndNetworkOrders
             } catch (e: Exception) {
-                _ordersState.value = emptyList()
+                repository.allOrders.collect { localList ->
+                    _ordersState.value = localList
+                }
             }
         }
     }
@@ -289,6 +299,12 @@ class MarketViewModel(
     var appSettingsMap by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    var latestAppVersion by mutableStateOf<String?>(null)
+        private set
+        
+    var appDownloadLink by mutableStateOf<String?>(null)
+        private set
+
     init {
         loadProductsFromApi()
         loadAppSettings()
@@ -311,6 +327,10 @@ class MarketViewModel(
                     val settings = res.body()?.settings ?: emptyMap()
                     appSettingsMap = settings
                     appBannerUrl = settings["app_banner"]
+                    
+                    // Fallback to settings map if top-level fields are missing but map contains them
+                    latestAppVersion = res.body()?.latestAppVersion ?: settings["latest_app_version"]
+                    appDownloadLink = res.body()?.appDownloadLink ?: settings["app_download_link"]
                 }
             } catch (e: Exception) {
             }
@@ -475,6 +495,12 @@ class MarketViewModel(
         viewModelScope.launch {
             val user = loggedInUser.value ?: return@launch
             repository.updateSavedPreferences(user.email, newPreferencesRaw)
+        }
+    }
+
+    fun updateUserProfile(userId: Int, oldEmail: String, email: String, fullName: String, phoneNumber: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            repository.updateUserProfile(userId, oldEmail, email, fullName, phoneNumber, onResult)
         }
     }
 
@@ -658,10 +684,7 @@ class MarketViewModel(
 
         val sessionManager = com.example.data.SessionManager(getApplication())
         val session = sessionManager.fetchSession()
-        if (session == null || session.userId <= 0) {
-            paymentResultError = "Please login to place an order"
-            return
-        }
+        val userId = session?.userId ?: 0
 
         // Double Check Form entries
         if (shippingAddress.isBlank() || phone.isBlank() || fullName.isBlank()) {
@@ -685,7 +708,7 @@ class MarketViewModel(
                 }
 
                 val request = com.example.network.OrderRequest(
-                    userId = session.userId,
+                    userId = userId,
                     totalAmount = currentSummary.total,
                     paymentMethod = paymentMethod,
                     address = shippingAddress,
@@ -696,7 +719,7 @@ class MarketViewModel(
                 val response = com.example.network.RetrofitClient.apiService.placeOrder(request)
                 if (response.isSuccessful && response.body()?.success == true) {
                     val orderId = response.body()?.orderId ?: "SNOW-${System.currentTimeMillis()}"
-                    paymentResultSuccess = com.example.data.Order(
+                    val newOrder = com.example.data.Order(
                         id = orderId,
                         timestamp = System.currentTimeMillis(),
                         itemsSummary = "Order from Checkout",
@@ -705,6 +728,27 @@ class MarketViewModel(
                         paymentCardLast4 = paymentMethod,
                         shippingAddress = shippingAddress
                     )
+                    paymentResultSuccess = newOrder
+                    
+                    // Insert into local DB for tracking
+                    repository.saveLocalOrder(newOrder)
+                    
+                    if (userId <= 0) {
+                        try {
+                            val guestReq = com.example.network.GuestOrderRequest(
+                                trackingId = orderId,
+                                guestName = fullName,
+                                phoneNumber = phone,
+                                deliveryAddress = shippingAddress,
+                                totalAmount = currentSummary.total,
+                                paymentMethod = paymentMethod
+                            )
+                            com.example.network.RetrofitClient.apiService.syncGuestOrder(guestReq)
+                        } catch (e: Exception) {
+                            // Silently ignore sync failures for guest orders
+                        }
+                    }
+                    
                     repository.clearCart() 
                     onSuccess()
                 } else {
