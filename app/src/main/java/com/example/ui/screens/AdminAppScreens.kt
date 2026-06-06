@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -648,7 +649,38 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
                         onClick = {
-                            val userText = inputText.trim()
+                            if (inputText.isEmpty() && messages.isNotEmpty()) {
+                                // Auto-fill with AI suggestion
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val lastUserMsg = messages.lastOrNull { !it.isUser }?.text ?: ""
+                                    if (lastUserMsg.isNotEmpty()) {
+                                        withContext(kotlinx.coroutines.Dispatchers.Main) { inputText = "Generating reply... " }
+                                        try {
+                                            val prompt = "You are a customer support admin for SnowWhite Boutique answering a user. The user said: \"$lastUserMsg\". Reply briefly and warmly as the human admin."
+                                            val request = com.example.network.GenerateContentRequest(
+                                                contents = listOf(com.example.network.Content(parts = listOf(com.example.network.Part(text = prompt))))
+                                            )
+                                            val apiKey = com.example.BuildConfig.GEMINI_API_KEY
+                                            val response = com.example.network.GeminiRetrofitClient.service.generateContent(apiKey, request)
+                                            val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "I am looking into this for you."
+                                            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                inputText = reply
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(kotlinx.coroutines.Dispatchers.Main) { inputText = "" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Icon(Icons.Default.Star, contentDescription = "AI Suggestion")
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = {
+                            val userText = inputText.replace("Generating reply... ", "").trim()
                             if (userText.isNotEmpty()) {
                                 messages.add(com.example.ui.screens.ChatMessage(userText, true))
                                 inputText = ""

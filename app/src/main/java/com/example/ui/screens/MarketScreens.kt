@@ -1273,22 +1273,6 @@ fun ProductListingCard(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
-                            
-                            if (onBuyNow != null) {
-                                Button(
-                                    onClick = {
-                                        onQuickAdd()
-                                        onBuyNow()
-                                    },
-                                    enabled = product.stock > 0,
-                                    shape = RoundedCornerShape(50),
-                                    modifier = Modifier.height(36.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                                ) {
-                                    Text("Buy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
                         }
                     }
                 }
@@ -1466,7 +1450,7 @@ fun ProductDetailModal(
                         }
 
                         if (!isAdmin) {
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     viewModel.addToCart(product)
                                     android.widget.Toast.makeText(context, "Added to cart! 🛒", android.widget.Toast.LENGTH_SHORT).show()
@@ -1477,24 +1461,6 @@ fun ProductDetailModal(
                                 contentPadding = PaddingValues(horizontal = 4.dp)
                             ) {
                                 Text(if (product.stock > 0) "Add to Cart" else "Out of Stock", fontSize = 13.sp)
-                            }
-
-                            Button(
-                                onClick = {
-                                    viewModel.addToCart(product)
-                                    onDismiss()
-                                    onBuyNow?.invoke()
-                                },
-                                enabled = product.stock > 0,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.height(48.dp).weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    disabledContainerColor = MaterialTheme.colorScheme.outline
-                                )
-                            ) {
-                                Text("Buy Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }
