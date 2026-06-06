@@ -119,13 +119,15 @@ class MainActivity : FragmentActivity() {
                  Scaffold(
                      modifier = Modifier.fillMaxSize(),
                      floatingActionButton = {
-                         FloatingActionButton(
-                             onClick = { selectedTab = 5 },
-                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                             modifier = Modifier.testTag("fab_support")
-                         ) {
-                             Icon(imageVector = androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Virtual Support")
+                         if (selectedTab != 5 && selectedTab != 15 && !(loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin")) {
+                             FloatingActionButton(
+                                 onClick = { selectedTab = 5 },
+                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                 modifier = Modifier.testTag("fab_support")
+                             ) {
+                                 Icon(imageVector = androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Virtual Support")
+                             }
                          }
                      },
                      bottomBar = {
@@ -212,8 +214,12 @@ class MainActivity : FragmentActivity() {
                             10 -> com.example.ui.screens.AdminOrdersScreen(viewModel = viewModel)
                             11 -> AdminProductsScreen(viewModel = viewModel)
                             12 -> com.example.ui.screens.AdminSettingsScreen(viewModel = viewModel)
-                            13 -> com.example.ui.screens.AdminUsersScreen(viewModel = viewModel)
+                            13 -> com.example.ui.screens.AdminUsersScreen(viewModel = viewModel, onChatClick = { userId ->
+                                viewModel.activeChatUserId = userId
+                                selectedTab = 15
+                            })
                             14 -> com.example.ui.screens.AdminCategoriesScreen(viewModel = viewModel, onBack = { selectedTab = 0 })
+                            15 -> com.example.ui.screens.AdminSupportChatScreen(viewModel = viewModel, onBack = { selectedTab = 13 })
                         }
                     }
                 }

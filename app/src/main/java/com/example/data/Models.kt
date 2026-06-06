@@ -39,6 +39,7 @@ data class Order(
 @Entity(tableName = "user_profiles")
 data class UserProfile(
     @PrimaryKey val email: String,
+    val id: Int = 0,
     val fullName: String,
     val phoneNumber: String,
     val city: String,

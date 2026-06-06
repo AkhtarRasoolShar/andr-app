@@ -177,7 +177,19 @@ data class NetworkOrder(
     val id: String,
     @Json(name = "total_amount") val totalAmount: Double,
     val status: String,
-    @Json(name = "created_at") val createdAt: String
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "customer_name") val customerName: String? = null,
+    val phone: String? = null,
+    @Json(name = "delivery_address") val deliveryAddress: String? = null,
+    @Json(name = "payment_method") val paymentMethod: String? = null,
+    val items: List<NetworkOrderItem>? = null
+)
+
+data class NetworkOrderItem(
+    val id: Int? = null,
+    val name: String? = null,
+    val quantity: Int? = null,
+    val price: Double? = null
 )
 
 data class ProductResponse(
@@ -247,6 +259,31 @@ data class ManageProductRequest(
     @Json(name = "image_url") val imageUrl: String? = null
 )
 
+data class NetworkChatMessage(
+    val id: Int? = null,
+    @Json(name = "sender_id") val senderId: Int,
+    @Json(name = "receiver_id") val receiverId: Int,
+    val message: String,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+data class ChatHistoryResponse(
+    val success: Boolean,
+    val messages: List<NetworkChatMessage> = emptyList(),
+    val error: String? = null
+)
+
+data class ChatSendRequest(
+    @Json(name = "sender_id") val senderId: Int,
+    @Json(name = "receiver_id") val receiverId: Int,
+    val message: String
+)
+
+data class ChatSendResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
 data class AdminMasterRequest(
     @Json(name = "action") val action: String,
     @Json(name = "order_id") val orderId: Int? = null,
@@ -257,10 +294,34 @@ data class AdminMasterRequest(
     @Json(name = "cod_enabled") val codEnabled: Boolean? = null,
     @Json(name = "primary_color") val primaryColor: String? = null,
     @Json(name = "delivery_fee") val deliveryFee: Double? = null,
-    @Json(name = "app_name") val appName: String? = null
+    @Json(name = "app_name") val appName: String? = null,
+    @Json(name = "logo_url") val logoUrl: String? = null
+)
+
+data class ActiveChatUser(
+    @Json(name = "user_id") val userId: Int,
+    val name: String,
+    val email: String,
+    @Json(name = "last_message") val lastMessage: String,
+    @Json(name = "last_message_time") val lastMessageTime: String
+)
+
+data class ActiveChatsResponse(
+    val success: Boolean,
+    val chats: List<ActiveChatUser> = emptyList(),
+    val error: String? = null
 )
 
 interface SnowwhiteApi {
+    @GET("api_chat.php")
+    suspend fun getChatHistory(@retrofit2.http.Query("action") action: String = "get_messages", @retrofit2.http.Query("user_id") userId: Int, @retrofit2.http.Query("other_id") otherId: Int): retrofit2.Response<ChatHistoryResponse>
+    
+    @GET("api_chat.php")
+    suspend fun getActiveChats(@retrofit2.http.Query("action") action: String = "get_active_chats"): retrofit2.Response<ActiveChatsResponse>
+
+    @POST("api_chat.php?action=send_message")
+    suspend fun sendChatMessage(@Body request: ChatSendRequest): retrofit2.Response<ChatSendResponse>
+
     @GET("log_visitor.php")
     suspend fun logVisitor(): retrofit2.Response<Unit>
 
@@ -325,7 +386,7 @@ interface SnowwhiteApi {
     suspend fun manageProduct(@Body request: ManageProductRequest): retrofit2.Response<ApiResponse>
 
     @POST("api_admin_master.php")
-    suspend fun sendAdminCommand(@Body request: AdminMasterRequest): retrofit2.Response<ApiResponse>
+    suspend fun sendAdminCommand(@Body request: AdminMasterRequest): retrofit2.Response<okhttp3.ResponseBody>
 }
 
 object ApiErrorEvent {

@@ -7,9 +7,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,10 +24,14 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.example.viewmodel.MarketViewModel
 
+data class AdminUser(val id: Int, val name: String, val email: String, var role: String)
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AdminOrdersScreen(viewModel: MarketViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var orders by remember { mutableStateOf<List<com.example.network.NetworkOrder>>(emptyList()) }
+    var searchQuery by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -100,12 +110,28 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
             if (orders.isEmpty()) {
                 Text("No orders pending.")
             } else {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(orders.size) { index ->
-                        val order = orders[index]
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search by Order ID or Customer Name") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                )
+
+                val filteredOrders = orders.filter { order ->
+                    order.id.contains(searchQuery, ignoreCase = true) ||
+                    (order.customerName?.contains(searchQuery, ignoreCase = true) == true)
+                }
+
+                if (filteredOrders.isEmpty()) {
+                    Text("No matching orders found.")
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredOrders.size) { index ->
+                            val order = filteredOrders[index]
                         var currentStatus by remember { mutableStateOf(order.status) }
                         var isDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -123,15 +149,16 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                                 
                                 Box {
                                     OutlinedButton(onClick = { isDropdownExpanded = true }) {
-                                        Text("Change Status")
+                                        Text("Action Options")
                                     }
+                                    var showPrintDialog by remember { mutableStateOf(false) }
                                     DropdownMenu(
                                         expanded = isDropdownExpanded,
                                         onDismissRequest = { isDropdownExpanded = false }
                                     ) {
                                         listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
                                             DropdownMenuItem(
-                                                text = { Text(status) },
+                                                text = { Text("Set: $status") },
                                                 onClick = {
                                                     isDropdownExpanded = false
                                                     currentStatus = status
@@ -141,8 +168,9 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                                                             orderId = order.id.toIntOrNull(),
                                                             status = status
                                                         )
-                                                        val res = viewModel.sendAdminCommand(request)
-                                                        if (res?.status == "success") {
+                                                        val resString = viewModel.sendAdminCommandString(request)
+                                                        val isSuccess = resString != null && org.json.JSONObject(resString).optString("status") == "success"
+                                                        if (isSuccess) {
                                                             snackbarHostState.showSnackbar("Order status updated successfully!")
                                                         } else {
                                                             snackbarHostState.showSnackbar("Failed to update order status.")
@@ -151,13 +179,45 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                                                 }
                                             )
                                         }
+                                        androidx.compose.material3.Divider()
+                                        DropdownMenuItem(
+                                            text = { Text("Print Slip") },
+                                            onClick = {
+                                                isDropdownExpanded = false
+                                                showPrintDialog = true
+                                            }
+                                        )
+                                    }
+                                    
+                                    if (showPrintDialog) {
+                                        AlertDialog(
+                                            onDismissRequest = { showPrintDialog = false },
+                                            title = { Text("Order Slip - #${order.id}") },
+                                            text = {
+                                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                                    Text("Date: ${order.createdAt}")
+                                                    Text("Status: ${order.status}")
+                                                    Text("Total Amount: Rs. ${order.totalAmount}")
+                                                }
+                                            },
+                                            confirmButton = {
+                                                TextButton(onClick = {
+                                                    printOrderReceipt(context, order)
+                                                    showPrintDialog = false
+                                                }) { Text("Print") }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { showPrintDialog = false }) { Text("Close") }
+                                            }
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
+            } // Close the else { block that checks if filteredOrders is empty
+            } // ADDED CLOSE BRACE
         }
     }
 }
@@ -167,6 +227,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
     var maintenanceMode by remember { mutableStateOf(false) }
     var codEnabled by remember { mutableStateOf(true) }
     var appName by remember { mutableStateOf("SnowWhite Boutique") }
+    var logoUrl by remember { mutableStateOf("") }
     var deliveryFee by remember { mutableStateOf("10.0") }
     var primaryColor by remember { mutableStateOf("#4CAF50") }
     
@@ -174,31 +235,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    scope.launch {
-                        val request = com.example.network.AdminMasterRequest(
-                            action = "update_settings",
-                            maintenanceMode = maintenanceMode,
-                            codEnabled = codEnabled,
-                            appName = appName,
-                            deliveryFee = deliveryFee.toDoubleOrNull() ?: 0.0,
-                            primaryColor = primaryColor
-                        )
-                        val res = viewModel.sendAdminCommand(request)
-                        if (res?.status == "success") {
-                            snackbarHostState.showSnackbar("Settings Updated!")
-                        } else {
-                            snackbarHostState.showSnackbar("Failed to update settings.")
-                        }
-                    }
-                }
-            ) {
-                Icon(Icons.Default.Save, contentDescription = "Save Changes")
-            }
-        }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -235,6 +272,12 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
+                        value = logoUrl,
+                        onValueChange = { logoUrl = it },
+                        label = { Text("App Logo URL") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
                         value = deliveryFee,
                         onValueChange = { deliveryFee = it },
                         label = { Text("Base Delivery Fee (Rs)") },
@@ -248,37 +291,84 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        val request = com.example.network.AdminMasterRequest(
+                            action = "update_settings",
+                            maintenanceMode = maintenanceMode,
+                            codEnabled = codEnabled,
+                            appName = appName,
+                            logoUrl = logoUrl,
+                            deliveryFee = deliveryFee.toDoubleOrNull() ?: 0.0,
+                            primaryColor = primaryColor
+                        )
+                        val resString = viewModel.sendAdminCommandString(request)
+                        val isSuccess = resString != null && org.json.JSONObject(resString).optString("status") == "success"
+                        if (isSuccess) {
+                            snackbarHostState.showSnackbar("Settings Updated!")
+                        } else {
+                            snackbarHostState.showSnackbar("Failed to update settings.")
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Save, contentDescription = "Save Changes")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Save Settings")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { viewModel.logout() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Logout Admin")
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-fun AdminUsersScreen(viewModel: MarketViewModel) {
+fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Using placeholder list of users for Demonstration / UI Flow
-    // In a real scenario, we would parse a specific response containing the user list.
-    data class AdminUser(val id: Int, val name: String, val email: String, var role: String)
-    val dummyUsers = remember { 
-        androidx.compose.runtime.mutableStateListOf(
-            AdminUser(1, "John Customer", "john@example.com", "customer"),
-            AdminUser(2, "Alice Admin", "alice@example.com", "admin")
-        ) 
+    val activeChats = remember { androidx.compose.runtime.mutableStateListOf<com.example.network.ActiveChatUser>() }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val chats = viewModel.getActiveChats()
+        activeChats.clear()
+        activeChats.addAll(chats)
+        isLoading = false
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Manage Access Roles", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+        Text("Active User Chats", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(16.dp))
         
-        androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(dummyUsers.size) { index ->
-                val user = dummyUsers[index]
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else if (activeChats.isEmpty()) {
+            Text("No active chats found.")
+        } else {
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+            items(activeChats.size) { index ->
+                val user = activeChats[index]
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable { onChatClick(user.userId) },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
@@ -286,42 +376,27 @@ fun AdminUsersScreen(viewModel: MarketViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(user.name, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                             Text(user.email, style = MaterialTheme.typography.bodySmall)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Current Role: ${user.role.uppercase()}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                            Text("Last Message: ${user.lastMessage}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
 
-                        Button(
-                            onClick = {
-                                val newRole = if (user.role == "customer") "admin" else "customer"
-                                scope.launch {
-                                    val request = com.example.network.AdminMasterRequest(
-                                        action = "update_user_role",
-                                        userId = user.id,
-                                        role = newRole
-                                    )
-                                    val res = viewModel.sendAdminCommand(request)
-                                    if (res?.status == "success" || res?.message != null) { // Accepting any response to update UI locally for demonstration
-                                        user.role = newRole
-                                        // Trigger recomposition trick
-                                        dummyUsers[index] = dummyUsers[index].copy(role = newRole)
-                                        android.widget.Toast.makeText(context, "Role changed to ${newRole.uppercase()}", android.widget.Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        android.widget.Toast.makeText(context, "Network Error", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(user.lastMessageTime, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(onClick = { onChatClick(user.userId) }) {
+                                Text("Open Chat", fontSize = 12.sp)
                             }
-                        ) {
-                            Text(if (user.role == "customer") "Make Admin" else "Revoke Admin", fontSize = 12.sp)
                         }
                     }
                 }
             }
-        }
-    }
-}
+            } // close LazyColumn
+        } // close else block
+    } // close main Column
+} // close func
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -337,7 +412,7 @@ fun AdminCategoriesScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                 title = { Text("Manage Categories") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
@@ -413,6 +488,175 @@ fun AdminCategoriesScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun printOrderReceipt(context: android.content.Context, order: com.example.network.NetworkOrder) {
+    val webView = android.webkit.WebView(context)
+
+    val htmlDocument = "" +
+        "<html>" +
+        "<head>" +
+        "    <style>" +
+        "        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }" +
+        "        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }" +
+        "        .header h1 { margin: 0; font-size: 24px; }" +
+        "        .order-info { margin-bottom: 20px; font-size: 14px; }" +
+        "        .order-info div { margin-bottom: 5px; }" +
+        "        .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px; }" +
+        "        .footer { text-align: center; font-size: 12px; color: #777; margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; }" +
+        "    </style>" +
+        "</head>" +
+        "<body>" +
+        "    <div class=\"header\">" +
+        "        <h1>SnowWhite Boutique</h1>" +
+        "        <div>Order Receipt</div>" +
+        "    </div>" +
+        "    " +
+        "    <div class=\"order-info\">" +
+        "        <div><strong>Order ID:</strong> #${order.id}</div>" +
+        "        <div><strong>Date:</strong> ${order.createdAt}</div>" +
+        "        <div><strong>Customer Name:</strong> ${order.customerName ?: "N/A"}</div>" +
+        "        <div><strong>Delivery Address:</strong> ${order.deliveryAddress ?: "N/A"}</div>" +
+        "        <div><strong>Phone:</strong> ${order.phone ?: "N/A"}</div>" +
+        "        <div><strong>Payment Method:</strong> ${order.paymentMethod ?: "N/A"}</div>" +
+        "        <div><strong>Status:</strong> ${order.status}</div>" +
+        "    </div>" +
+        "    " +
+        "    <div class=\"total\">" +
+        "        Total Amount: Rs. ${order.totalAmount}" +
+        "    </div>" +
+        "    " +
+        "    <div class=\"footer\">" +
+        "        Thank you for your business!" +
+        "    </div>" +
+        "</body>" +
+        "</html>"
+
+    webView.loadDataWithBaseURL(null, htmlDocument, "text/HTML", "UTF-8", null)
+
+    webView.webViewClient = object : android.webkit.WebViewClient() {
+        override fun onPageFinished(view: android.webkit.WebView, url: String) {
+            val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+            val printAdapter = webView.createPrintDocumentAdapter("Order_${order.id}_Receipt")
+            val jobName = "Order_${order.id}_Slip"
+            printManager.print(jobName, printAdapter, android.print.PrintAttributes.Builder().build())
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var inputText by remember { mutableStateOf("") }
+    val messages = remember { androidx.compose.runtime.mutableStateListOf<com.example.ui.screens.ChatMessage>() }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    val customerUserId = viewModel.activeChatUserId ?: return // Cannot chat if unknown
+
+    val adminUserId = viewModel.loggedInUser.value?.id ?: 1
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    LaunchedEffect(customerUserId) {
+        // Init polling for admin chat with this customer
+        while (true) {
+            try {
+                val apiMsgs = viewModel.getChatHistory(adminUserId, customerUserId) // admin id = dynamic, other user
+                val newMsgs = apiMsgs.map { networkMsg ->
+                    com.example.ui.screens.ChatMessage(
+                        text = networkMsg.message,
+                        isUser = networkMsg.senderId == adminUserId // User is "self" for UI drawing
+                    )
+                }
+                if (newMsgs.isNotEmpty()) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        messages.clear()
+                        messages.addAll(newMsgs)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            kotlinx.coroutines.delay(3000)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Chat with User #$customerUserId") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(messages.size) { i ->
+                    com.example.ui.screens.ChatBubble(messages[i])
+                }
+            }
+
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Type here...") },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            val userText = inputText.trim()
+                            if (userText.isNotEmpty()) {
+                                messages.add(com.example.ui.screens.ChatMessage(userText, true))
+                                inputText = ""
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val adminId = viewModel.loggedInUser.value?.id ?: 1
+                                    viewModel.sendChatMessage(adminId, customerUserId, userText)
+                                }
+                            }
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = "Send")
                     }
                 }
             }

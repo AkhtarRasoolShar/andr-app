@@ -783,38 +783,40 @@ fun MainCatalogScreen(
                                     }
                                 }
 
-                                IconButton(
-                                    onClick = { isWishlistOpen = true },
-                                    modifier = Modifier.testTag("nav_wishlist_badge")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Favorite,
-                                        contentDescription = "Wishlist",
-                                        tint = Color(0xFFE91E63)
-                                    )
-                                }
-                                val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
-                                BadgedBox(
-                                    badge = {
-                                        if (qtyCount > 0) {
-                                            Badge(
-                                                containerColor = MaterialTheme.colorScheme.primary,
-                                                contentColor = MaterialTheme.colorScheme.onPrimary
-                                            ) {
-                                                Text(text = "$qtyCount")
-                                            }
-                                        }
-                                    }
-                                ) {
+                                if (loggedInUser?.role != "admin" && loggedInUser?.role != "super_admin") {
                                     IconButton(
-                                        onClick = { onNavigateToTab(1) }, // Navigate to Cart
-                                        modifier = Modifier.testTag("nav_cart_badge")
+                                        onClick = { isWishlistOpen = true },
+                                        modifier = Modifier.testTag("nav_wishlist_badge")
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.ShoppingCart,
-                                            contentDescription = "Active Shopping Cart",
-                                            tint = MaterialTheme.colorScheme.onSurface
+                                            imageVector = Icons.Default.Favorite,
+                                            contentDescription = "Wishlist",
+                                            tint = Color(0xFFE91E63)
                                         )
+                                    }
+                                    val qtyCount = cartSummary.items.sumOf { it.cartItem.quantity }
+                                    BadgedBox(
+                                        badge = {
+                                            if (qtyCount > 0) {
+                                                Badge(
+                                                    containerColor = MaterialTheme.colorScheme.primary,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                                ) {
+                                                    Text(text = "$qtyCount")
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        IconButton(
+                                            onClick = { onNavigateToTab(1) }, // Navigate to Cart
+                                            modifier = Modifier.testTag("nav_cart_badge")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ShoppingCart,
+                                                contentDescription = "Active Shopping Cart",
+                                                tint = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1148,6 +1150,8 @@ fun ProductListingCard(
     val wishlistIds by viewModel.wishlistIds.collectAsState()
     val isWishlisted = wishlistIds.contains(product.id)
     val context = androidx.compose.ui.platform.LocalContext.current
+    val loggedInUser by viewModel.loggedInUser.collectAsState()
+    val isAdmin = loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin"
 
     Card(
         modifier = Modifier
@@ -1190,21 +1194,23 @@ fun ProductListingCard(
                     )
                 }
 
-                IconButton(
-                    onClick = { viewModel.toggleWishlist(product.id) },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.7f))
-                        .size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Toggle Favorite",
-                        tint = if (isWishlisted) Color(0xFFE91E63) else Color.Gray,
-                        modifier = Modifier.size(20.dp)
-                    )
+                if (!isAdmin) {
+                    IconButton(
+                        onClick = { viewModel.toggleWishlist(product.id) },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.7f))
+                            .size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Toggle Favorite",
+                            tint = if (isWishlisted) Color(0xFFE91E63) else Color.Gray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -1242,44 +1248,46 @@ fun ProductListingCard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Button(
-                            onClick = {
-                                onQuickAdd()
-                                android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            enabled = product.stock > 0,
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier
-                                .height(36.dp)
-                                .testTag("add_to_cart_btn_${product.id}"),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                disabledContainerColor = MaterialTheme.colorScheme.outline
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AddShoppingCart,
-                                contentDescription = "Quick add basket",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        
-                        if (onBuyNow != null) {
+                    if (!isAdmin) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Button(
                                 onClick = {
                                     onQuickAdd()
-                                    onBuyNow()
+                                    android.widget.Toast.makeText(context, "Item added to cart successfully! 🛒", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 enabled = product.stock > 0,
                                 shape = RoundedCornerShape(50),
-                                modifier = Modifier.height(36.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                modifier = Modifier
+                                    .height(36.dp)
+                                    .testTag("add_to_cart_btn_${product.id}"),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    disabledContainerColor = MaterialTheme.colorScheme.outline
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                             ) {
-                                Text("Buy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Icon(
+                                    imageVector = Icons.Default.AddShoppingCart,
+                                    contentDescription = "Quick add basket",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            
+                            if (onBuyNow != null) {
+                                Button(
+                                    onClick = {
+                                        onQuickAdd()
+                                        onBuyNow()
+                                    },
+                                    enabled = product.stock > 0,
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.height(36.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                ) {
+                                    Text("Buy", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -1298,6 +1306,8 @@ fun ProductDetailModal(
 ) {
     androidx.activity.compose.BackHandler(onBack = onDismiss)
     val context = androidx.compose.ui.platform.LocalContext.current
+    val loggedInUser by viewModel.loggedInUser.collectAsState()
+    val isAdmin = loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin"
     
     // Changing from Dialog to full-screen page view overlay
     Box(
@@ -1455,35 +1465,37 @@ fun ProductDetailModal(
                             )
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.addToCart(product)
-                                android.widget.Toast.makeText(context, "Added to cart! 🛒", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            enabled = product.stock > 0,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(48.dp).weight(1f),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            Text(if (product.stock > 0) "Add to Cart" else "Out of Stock", fontSize = 13.sp)
-                        }
+                        if (!isAdmin) {
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.addToCart(product)
+                                    android.widget.Toast.makeText(context, "Added to cart! 🛒", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                enabled = product.stock > 0,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(48.dp).weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Text(if (product.stock > 0) "Add to Cart" else "Out of Stock", fontSize = 13.sp)
+                            }
 
-                        Button(
-                            onClick = {
-                                viewModel.addToCart(product)
-                                onDismiss()
-                                onBuyNow?.invoke()
-                            },
-                            enabled = product.stock > 0,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(48.dp).weight(1f),
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = MaterialTheme.colorScheme.outline
-                            )
-                        ) {
-                            Text("Buy Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Button(
+                                onClick = {
+                                    viewModel.addToCart(product)
+                                    onDismiss()
+                                    onBuyNow?.invoke()
+                                },
+                                enabled = product.stock > 0,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(48.dp).weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    disabledContainerColor = MaterialTheme.colorScheme.outline
+                                )
+                            ) {
+                                Text("Buy Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
                         }
                     }
                 }
@@ -1533,6 +1545,7 @@ fun CartScreen(
     var selectedPickupSlot by remember { mutableStateOf("") }
     var selectedDeliveryDate by remember { mutableStateOf("") }
     var selectedDeliverySlot by remember { mutableStateOf("") }
+    var showSummaryModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(successOrder) {
         if (successOrder != null) {
@@ -2364,13 +2377,7 @@ fun CartScreen(
                                         if (addressStr.trim().isEmpty() || phoneStr.trim().isEmpty() || fullNameStr.trim().isEmpty()) {
                                             android.widget.Toast.makeText(context, "Please fill in your shipping details", android.widget.Toast.LENGTH_SHORT).show()
                                         } else {
-                                            viewModel.checkout(
-                                                paymentMethod = selectedPaymentMethod,
-                                                shippingAddress = addressStr,
-                                                phone = phoneStr,
-                                                fullName = fullNameStr,
-                                                onSuccess = { onNavigateToTab(3) }
-                                            )
+                                            showSummaryModal = true
                                         }
                                     },
                                     enabled = !isProcessing && summary.items.isNotEmpty(),
@@ -2399,7 +2406,7 @@ fun CartScreen(
                                         Icon(Icons.Default.EnhancedEncryption, "Lock badge")
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Pay Secured $${String.format(java.util.Locale.US, "%.2f", summary.total)}",
+                                            text = "Pay Secured Rs. ${String.format(java.util.Locale.US, "%.2f", summary.total)}",
                                             fontWeight = FontWeight.ExtraBold,
                                             fontSize = 16.sp
                                         )
@@ -2425,6 +2432,48 @@ fun CartScreen(
             cardCvv = ""
             addressStr = ""
         }
+    }
+
+    if (showSummaryModal) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSummaryModal = false },
+            title = { Text("Order Summary") },
+            text = {
+                Column {
+                    Text("Total Amount: Rs. ${String.format(java.util.Locale.US, "%.2f", summary.total)}")
+                    Text("Payment: $selectedPaymentMethod")
+                    if (selectedPickupDate.isNotEmpty()) {
+                        Text("Pickup: $selectedPickupDate - $selectedPickupSlot")
+                    }
+                    if (selectedDeliveryDate.isNotEmpty()) {
+                        Text("Delivery: $selectedDeliveryDate - $selectedDeliverySlot")
+                    } else {
+                        Text("Est. Delivery: 3-5 business days")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSummaryModal = false
+                        viewModel.checkout(
+                            paymentMethod = selectedPaymentMethod,
+                            shippingAddress = addressStr,
+                            phone = phoneStr,
+                            fullName = fullNameStr,
+                            onSuccess = { onNavigateToTab(3) }
+                        )
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSummaryModal = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -4159,7 +4208,22 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = product.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(text = "Price: Rs. ${product.price}", style = MaterialTheme.typography.bodyMedium)
-                            Text(text = "Stock: ${product.stock}", style = MaterialTheme.typography.bodySmall, color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Stock: ${product.stock}", 
+                                    style = MaterialTheme.typography.bodySmall, 
+                                    color = if (product.stock > 10) MaterialTheme.colorScheme.primary else if (product.stock > 0) Color(0xFFFFA000) else MaterialTheme.colorScheme.error
+                                )
+                                if (product.stock <= 10) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    androidx.compose.material3.Badge(
+                                        containerColor = if (product.stock == 0) MaterialTheme.colorScheme.error else Color(0xFFFFA000),
+                                        contentColor = Color.White
+                                    ) {
+                                        Text(if (product.stock == 0) "Out of Stock" else "Low Stock", modifier = Modifier.padding(2.dp))
+                                    }
+                                }
+                            }
                         }
                         IconButton(onClick = { editCandidate = product }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Product", tint = MaterialTheme.colorScheme.primary)
@@ -4228,6 +4292,29 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                         editCandidate = null
                     }
                 }
+            },
+            onUploadImage = { uri, callback ->
+                Thread {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        val bytes = inputStream?.readBytes()
+                        inputStream?.close()
+                        if (bytes != null) {
+                            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                            viewModel.uploadImage(base64) { url, error ->
+                                callback(url)
+                                if (error != null) {
+                                    System.err.println("Upload failed: $error")
+                                }
+                            }
+                        } else {
+                            callback(null)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        callback(null)
+                    }
+                }.start()
             }
         )
     }
@@ -4241,12 +4328,28 @@ fun AddEditProductDialog(
     initialStock: String,
     initialImageUrl: String,
     onDismiss: () -> Unit,
-    onSave: (title: String, price: Double, stock: Int, imageUrl: String) -> Unit
+    onSave: (title: String, price: Double, stock: Int, imageUrl: String) -> Unit,
+    onUploadImage: ((android.net.Uri, (String?) -> Unit) -> Unit)? = null
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var price by remember { mutableStateOf(initialPrice) }
     var stock by remember { mutableStateOf(initialStock) }
     var imageUrl by remember { mutableStateOf(initialImageUrl) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null && onUploadImage != null) {
+            isUploading = true
+            onUploadImage(uri) { newUrl ->
+                isUploading = false
+                if (newUrl != null) {
+                    imageUrl = newUrl
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -4257,6 +4360,20 @@ fun AddEditProductDialog(
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = stock, onValueChange = { stock = it }, label = { Text("Stock") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = { Text("Image URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                
+                Button(
+                    onClick = { launcher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isUploading && onUploadImage != null
+                ) {
+                    if (isUploading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Icon(Icons.Default.Upload, contentDescription = "Upload Image")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Upload Image")
+                    }
+                }
             }
         },
         confirmButton = {

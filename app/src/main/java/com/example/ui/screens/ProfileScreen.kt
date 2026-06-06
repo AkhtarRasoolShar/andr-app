@@ -1069,20 +1069,22 @@ fun UserProfileCard(
                 }
             }
             
-            // Help & Support Button (Help Center)
-            OutlinedButton(
-                onClick = { onNavigateToTab(5) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.HelpOutline, "Help center", modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("FAQ & Help Center", fontWeight = FontWeight.Bold)
-            }
+            if (!user.isAdmin) {
+                // Help & Support Button (Help Center)
+                OutlinedButton(
+                    onClick = { onNavigateToTab(5) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.HelpOutline, "Help center", modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("FAQ & Help Center", fontWeight = FontWeight.Bold)
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             Spacer(modifier = Modifier.height(12.dp))
 

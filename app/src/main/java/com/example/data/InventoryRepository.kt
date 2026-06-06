@@ -49,6 +49,31 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         }
     }
 
+    suspend fun fetchChatHistory(userId: Int, otherId: Int): List<com.example.network.NetworkChatMessage> {
+        return try {
+            val response = com.example.network.RetrofitClient.apiService.getChatHistory(userId = userId, otherId = otherId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.messages ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun sendChatMessage(senderId: Int, receiverId: Int, message: String): Boolean {
+        return try {
+            val req = com.example.network.ChatSendRequest(senderId, receiverId, message)
+            val response = com.example.network.RetrofitClient.apiService.sendChatMessage(req)
+            response.isSuccessful && response.body()?.success == true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     suspend fun uploadImage(base64Image: String): String {
         val response = com.example.network.RetrofitClient.apiService.uploadImage(
             com.example.network.UploadImageRequest(image = base64Image)
@@ -143,6 +168,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
             val isAdminRole = userRole.equals("admin", ignoreCase = true) || userRole.equals("super_admin", ignoreCase = true)
             val adminProfile = UserProfile(
                 email = returnedUser.email,
+                id = fetchedId,
                 fullName = returnedUser.fullName,
                 phoneNumber = returnedUser.derivedPhone,
                 city = returnedUser.city ?: "Unknown",
@@ -426,6 +452,7 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
         val isAdminRole = role.equals("admin", ignoreCase = true) || role.equals("super_admin", ignoreCase = true)
         val profile = UserProfile(
             email = email,
+            id = existing?.id ?: 0,
             fullName = existing?.fullName ?: fullName,
             phoneNumber = existing?.phoneNumber ?: "0300-1112233",
             city = existing?.city ?: "Karachi",

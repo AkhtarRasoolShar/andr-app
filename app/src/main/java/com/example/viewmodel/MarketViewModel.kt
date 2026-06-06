@@ -249,6 +249,8 @@ class MarketViewModel(
         }
     }
 
+    var activeChatUserId: Int? = null
+
     // Logged-in User Profile state
     val loggedInUser: StateFlow<UserProfile?> = repository.loggedInUser
         .stateIn(
@@ -508,6 +510,27 @@ class MarketViewModel(
                 // Ignore matching mistakes
             }
         }
+    }
+
+    suspend fun getActiveChats(): List<com.example.network.ActiveChatUser> {
+        return try {
+            val response = com.example.network.RetrofitClient.apiService.getActiveChats()
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.chats ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getChatHistory(userId: Int, otherId: Int): List<com.example.network.NetworkChatMessage> {
+        return repository.fetchChatHistory(userId, otherId)
+    }
+
+    suspend fun sendChatMessage(senderId: Int, receiverId: Int, message: String): Boolean {
+        return repository.sendChatMessage(senderId, receiverId, message)
     }
 
     fun uploadProduct(
@@ -871,13 +894,43 @@ class MarketViewModel(
     }
 
     // --- Admin Master API Requests ---
-    suspend fun sendAdminCommand(request: com.example.network.AdminMasterRequest): com.example.network.ApiResponse? {
+    suspend fun sendAdminCommandString(request: com.example.network.AdminMasterRequest): String? {
         return try {
             val response = com.example.network.RetrofitClient.apiService.sendAdminCommand(request)
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) response.body()?.string() else null
         } catch (e: Exception) {
             null
         }
+    }
+
+    suspend fun fetchAdminUsers(): List<com.example.ui.screens.AdminUser> {
+        val request = com.example.network.AdminMasterRequest(action = "get_all_users")
+        val jsonString = sendAdminCommandString(request)
+        val list = mutableListOf<com.example.ui.screens.AdminUser>()
+        try {
+            if (jsonString != null) {
+                val arrayStr = jsonString.trim()
+                val jsonArr = if (arrayStr.startsWith("[")) {
+                    org.json.JSONArray(arrayStr)
+                } else {
+                    val root = org.json.JSONObject(arrayStr)
+                    root.optJSONArray("users") ?: root.optJSONArray("data") ?: org.json.JSONArray("[]")
+                }
+                for (i in 0 until jsonArr.length()) {
+                    val obj = jsonArr.getJSONObject(i)
+                    val id = obj.optInt("id", obj.optInt("user_id", -1))
+                    val email = obj.optString("email", "")
+                    val name = obj.optString("name", obj.optString("full_name", ""))
+                    val role = obj.optString("role", "customer")
+                    if (id != -1 && email.isNotEmpty()) {
+                        list.add(com.example.ui.screens.AdminUser(id, name, email, role))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return list
     }
 
     // Luhn card logic
