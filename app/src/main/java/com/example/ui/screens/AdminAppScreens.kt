@@ -345,10 +345,14 @@ fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        val chats = viewModel.getActiveChats()
-        activeChats.clear()
-        activeChats.addAll(chats)
-        isLoading = false
+        isLoading = true
+        while (true) {
+            val chats = viewModel.getActiveChats()
+            activeChats.clear()
+            activeChats.addAll(chats)
+            isLoading = false
+            kotlinx.coroutines.delay(3000)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {

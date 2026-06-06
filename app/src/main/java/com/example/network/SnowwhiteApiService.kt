@@ -431,7 +431,7 @@ object RetrofitClient {
                 else -> "API Error: ${response.code} ${response.message}"
             }
             val urlString = request.url.toString()
-            if (!urlString.contains("log_visitor.php") && !urlString.contains("get_settings.php")) {
+            if (!urlString.contains("log_visitor.php") && !urlString.contains("get_settings.php") && !urlString.contains("api_chat.php") && !urlString.contains("api_orders.php")) {
                 ApiErrorEvent.emit(userFriendlyMessage)
             }
         }
