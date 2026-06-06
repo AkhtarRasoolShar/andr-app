@@ -123,17 +123,12 @@ if ($action === 'get_active_chats') {
                 cm.message as last_message, 
                 cm.created_at as last_message_time
             FROM users u
-            INNER JOIN (
-                SELECT sender_id, receiver_id, message, created_at
-                FROM chat_messages
-                WHERE id IN (
-                    SELECT MAX(id)
-                    FROM chat_messages
-                    GROUP BY sender_id
-                )
-            ) cm ON (u.id = cm.sender_id OR u.id = cm.receiver_id)
+            INNER JOIN chat_messages cm ON cm.id = (
+                SELECT MAX(id) 
+                FROM chat_messages 
+                WHERE (sender_id = u.id AND receiver_id = 1) OR (sender_id = 1 AND receiver_id = u.id)
+            )
             WHERE u.id != 1
-            GROUP BY u.id
             ORDER BY cm.created_at DESC
         ";
         
