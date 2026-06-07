@@ -26,11 +26,13 @@ data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Lon
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var inputText by remember { mutableStateOf("") }
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val coroutineScope = rememberCoroutineScope()
-    var isLiveWithAdmin by remember { mutableStateOf(false) }
+    val isLiveWithAdmin = viewModel.isLiveWithAdmin
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var lastApiCount by remember { androidx.compose.runtime.mutableStateOf(0) }
 
     // Init welcome message purely client-side
     LaunchedEffect(Unit) {
@@ -49,17 +51,16 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
             while (true) {
                 try {
                     val apiMsgs = viewModel.getChatHistory(user.id, 1) // admin id = 1
-                    val newMsgs = apiMsgs.map { networkMsg ->
-                        ChatMessage(
-                            text = networkMsg.message,
-                            isUser = networkMsg.senderId == user.id
-                        )
-                    }
-                    if (newMsgs.isNotEmpty()) {
-                        // Only add messages we don't already have (very basic unique check for UI)
+                    if (apiMsgs.size > lastApiCount) {
+                        val newMsgs = apiMsgs.drop(lastApiCount).map { networkMsg ->
+                            ChatMessage(
+                                text = networkMsg.message,
+                                isUser = networkMsg.senderId == user.id
+                            )
+                        }
                         withContext(Dispatchers.Main) {
-                            messages.clear()
                             messages.addAll(newMsgs)
+                            lastApiCount = apiMsgs.size
                         }
                     }
                 } catch (e: Exception) {
@@ -84,7 +85,7 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                     Switch(
                         checked = isLiveWithAdmin,
                         onCheckedChange = { 
-                            isLiveWithAdmin = it 
+                            viewModel.updateLiveWithAdmin(it)
                             val statusMsg = if (it) "Connecting you to a live human admin..." else "Switched back to virtual assistant."
                             messages.add(ChatMessage(statusMsg, false))
                         }
@@ -196,11 +197,21 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                 }
 
                                     if (isLiveWithAdmin) {
+                                        val messageToSend = userText
                                         coroutineScope.launch(Dispatchers.IO) {
                                             val senderId = viewModel.loggedInUser.value?.id ?: 0
                                             if (senderId > 0) {
-                                                val success = viewModel.sendChatMessage(senderId, 1, userText) // Assumes Admin ID = 1
-                                                // After sending, we fetch from API in the polling loop
+                                                val success = viewModel.sendChatMessage(senderId, 1, messageToSend) // Assumes Admin ID = 1
+                                                if (!success) {
+                                                    withContext(Dispatchers.Main) { 
+                                                        messages.add(ChatMessage("Failed to send message.", false)) 
+                                                    }
+                                                }
+                                            } else {
+                                                withContext(Dispatchers.Main) {
+                                                    messages.add(ChatMessage("Please log in to chat with a human admin.", false))
+                                                    viewModel.updateLiveWithAdmin(false)
+                                                }
                                             }
                                         }
                                     } else if (matchedReply != null) {

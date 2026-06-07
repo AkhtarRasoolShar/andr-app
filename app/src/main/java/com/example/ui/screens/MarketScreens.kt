@@ -1123,11 +1123,14 @@ fun MainCatalogScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Button(
-                    onClick = { showContactSupport = false },
+                    onClick = { 
+                        showContactSupport = false
+                        onNavigateToTab(5)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Chat, contentDescription = "Live Chat")
+                    Icon(androidx.compose.material.icons.Icons.Default.Chat, contentDescription = "Live Chat")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Start Live Chat")
                 }
@@ -4147,7 +4150,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(products, key = { it.id }) { product ->

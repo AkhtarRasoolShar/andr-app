@@ -299,16 +299,16 @@ data class AdminMasterRequest(
 )
 
 data class ActiveChatUser(
-    @Json(name = "user_id") val userId: Int,
+    @Json(name = "id") val userId: Int,
     val name: String,
     val email: String,
-    @Json(name = "last_message") val lastMessage: String,
-    @Json(name = "last_message_time") val lastMessageTime: String
+    @Json(name = "last_message") val lastMessage: String? = null,
+    @Json(name = "last_message_time") val lastMessageTime: String? = null
 )
 
 data class ActiveChatsResponse(
     val success: Boolean,
-    val chats: List<ActiveChatUser> = emptyList(),
+    @Json(name = "conversations") val chats: List<ActiveChatUser> = emptyList(),
     val error: String? = null
 )
 

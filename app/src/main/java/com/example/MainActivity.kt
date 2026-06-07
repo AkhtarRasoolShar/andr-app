@@ -1,5 +1,7 @@
 package com.example
 
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -43,6 +45,17 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        try {
+            val serviceIntent = Intent(this, com.example.services.ChatForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             val requestPermissionLauncher = registerForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -118,18 +131,6 @@ class MainActivity : FragmentActivity() {
 
                  Scaffold(
                      modifier = Modifier.fillMaxSize(),
-                     floatingActionButton = {
-                         if (selectedTab != 5 && selectedTab != 15 && !(loggedInUser?.role == "admin" || loggedInUser?.role == "super_admin")) {
-                             FloatingActionButton(
-                                 onClick = { selectedTab = 5 },
-                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                 modifier = Modifier.testTag("fab_support")
-                             ) {
-                                 Icon(imageVector = androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Virtual Support")
-                             }
-                         }
-                     },
                      bottomBar = {
                          NavigationBar(
                              modifier = Modifier
@@ -146,26 +147,24 @@ class MainActivity : FragmentActivity() {
                                      label = { Text("Orders") },
                                      icon = { Icon(if (selectedTab == 10) Icons.Filled.Receipt else Icons.Outlined.Receipt, "Manage Orders") }
                                  )
-                                 NavigationBarItem(
-                                     selected = selectedTab == 11,
-                                     onClick = { selectedTab = 11 },
-                                     label = { Text("Products") },
-                                     icon = { Icon(if (selectedTab == 11) Icons.Filled.Build else Icons.Outlined.Build, "Manage Products") }
-                                 )
-                                 NavigationBarItem(
-                                     selected = selectedTab == 12,
-                                     onClick = { selectedTab = 12 },
-                                     label = { Text("Settings") },
-                                     icon = { Icon(if (selectedTab == 12) Icons.Filled.Build else Icons.Outlined.Build, "App Settings") }
-                                 )
-                                 if (loggedInUser?.role == "super_admin") {
-                                     NavigationBarItem(
-                                         selected = selectedTab == 13,
-                                         onClick = { selectedTab = 13 },
-                                         label = { Text("Users") },
-                                         icon = { Icon(if (selectedTab == 13) Icons.Filled.Person else Icons.Outlined.Person, "Manage Users") }
-                                     )
-                                 }
+                                NavigationBarItem(
+                                    selected = selectedTab == 11,
+                                    onClick = { selectedTab = 11 },
+                                    label = { Text("Products") },
+                                    icon = { Icon(if (selectedTab == 11) Icons.Filled.Build else Icons.Outlined.Build, "Manage Products") }
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == 13,
+                                    onClick = { selectedTab = 13 },
+                                    label = { Text("Chats/Users") },
+                                    icon = { Icon(if (selectedTab == 13) Icons.Filled.Person else Icons.Outlined.Person, "Manage Users") }
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == 12,
+                                    onClick = { selectedTab = 12 },
+                                    label = { Text("Settings") },
+                                    icon = { Icon(if (selectedTab == 12) Icons.Filled.Build else Icons.Outlined.Build, "App Settings") }
+                                )
                              } else {
                                  // Customer Bottom Nav
                                  NavigationBarItem(
@@ -220,6 +219,7 @@ class MainActivity : FragmentActivity() {
                             })
                             14 -> com.example.ui.screens.AdminCategoriesScreen(viewModel = viewModel, onBack = { selectedTab = 0 })
                             15 -> com.example.ui.screens.AdminSupportChatScreen(viewModel = viewModel, onBack = { selectedTab = 13 })
+                            16 -> com.example.ui.screens.NotificationSettingsScreen(onBack = { selectedTab = 4 })
                         }
                     }
                 }

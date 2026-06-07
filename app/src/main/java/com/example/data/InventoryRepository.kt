@@ -51,14 +51,19 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
 
     suspend fun fetchChatHistory(userId: Int, otherId: Int): List<com.example.network.NetworkChatMessage> {
         return try {
+            android.util.Log.d("ChatDebug", "Fetching chat history for: $userId and $otherId")
             val response = com.example.network.RetrofitClient.apiService.getChatHistory(userId = userId, otherId = otherId)
+            android.util.Log.d("ChatDebug", "Fetch chat history response: ${response.code()} ${response.message()}")
             if (response.isSuccessful && response.body()?.success == true) {
-                response.body()?.messages ?: emptyList()
+                val msgs = response.body()?.messages ?: emptyList()
+                android.util.Log.d("ChatDebug", "Fetched messages count: ${msgs.size}")
+                msgs
             } else {
+                android.util.Log.e("ChatDebug", "Failed to fetch chat history: ${response.errorBody()?.string()}")
                 emptyList()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ChatDebug", "Exception fetching chat history", e)
             emptyList()
         }
     }
@@ -66,10 +71,15 @@ class InventoryRepository(private val dao: MarketplaceDao, private val context: 
     suspend fun sendChatMessage(senderId: Int, receiverId: Int, message: String): Boolean {
         return try {
             val req = com.example.network.ChatSendRequest(senderId, receiverId, message)
+            android.util.Log.d("ChatDebug", "Sending chat message: $req")
             val response = com.example.network.RetrofitClient.apiService.sendChatMessage(req)
+            android.util.Log.d("ChatDebug", "Send chat response: ${response.code()} ${response.message()} body: ${response.body()}")
+            if (!response.isSuccessful) {
+                 android.util.Log.e("ChatDebug", "Error sending chat: ${response.errorBody()?.string()}")
+            }
             response.isSuccessful && response.body()?.success == true
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ChatDebug", "Exception sending chat", e)
             false
         }
     }

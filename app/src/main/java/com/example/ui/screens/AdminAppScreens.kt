@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.runtime.*
@@ -337,6 +339,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
     val scope = rememberCoroutineScope()
@@ -344,6 +347,8 @@ fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
 
     val activeChats = remember { androidx.compose.runtime.mutableStateListOf<com.example.network.ActiveChatUser>() }
     var isLoading by remember { mutableStateOf(true) }
+
+    var floatingChatUser by remember { mutableStateOf<com.example.network.ActiveChatUser?>(null) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -356,52 +361,196 @@ fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Active User Chats", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else if (activeChats.isEmpty()) {
-            Text("No active chats found.")
-        } else {
-            androidx.compose.foundation.lazy.LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-            items(activeChats.size) { index ->
-                val user = activeChats[index]
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                        .clickable { onChatClick(user.userId) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Text("Active User Chats", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else if (activeChats.isEmpty()) {
+                Text("No active chats found.")
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(user.name, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            Text(user.email, style = MaterialTheme.typography.bodySmall)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Last Message: ${user.lastMessage}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
+                    items(activeChats.size) { index ->
+                        val user = activeChats[index]
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { floatingChatUser = user },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = user.name ?: "", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                    Text(text = user.email ?: "", style = MaterialTheme.typography.bodySmall)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = "Last Message: ${user.lastMessage ?: ""}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
 
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(user.lastMessageTime, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Button(onClick = { onChatClick(user.userId) }) {
-                                Text("Open Chat", fontSize = 12.sp)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(text = user.lastMessageTime ?: "", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Button(onClick = { floatingChatUser = user }) {
+                                        Text("Quick Reply", fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            } // close LazyColumn
-        } // close else block
-    } // close main Column
-} // close func
+        }
+
+        if (floatingChatUser != null) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { floatingChatUser = null }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().height(500.dp),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(floatingChatUser!!.name, color = MaterialTheme.colorScheme.onPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { floatingChatUser = null }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onPrimary)
+                            }
+                        }
+                        
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            AdminQuickChatPanel(viewModel = viewModel, adminUserId = 1, customerUserId = floatingChatUser!!.userId)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminQuickChatPanel(viewModel: MarketViewModel, adminUserId: Int, customerUserId: Int) {
+    var inputText by remember { mutableStateOf("") }
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    val coroutineScope = rememberCoroutineScope()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    LaunchedEffect(customerUserId) {
+        while (true) {
+            try {
+                val apiMsgs = viewModel.getChatHistory(adminUserId, customerUserId)
+                val newMsgs = apiMsgs.map { networkMsg ->
+                    val isMine = networkMsg.senderId == adminUserId
+                    ChatMessage(networkMsg.message, isMine)
+                }
+                if (newMsgs.size > messages.size) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        val toAdd = newMsgs.drop(messages.size)
+                        messages.addAll(toAdd)
+                    }
+                } else if (newMsgs.isNotEmpty() && messages.isEmpty()) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        messages.addAll(newMsgs)
+                    }
+                }
+            } catch (e: Exception) {}
+            kotlinx.coroutines.delay(2000)
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(messages.size) { index ->
+                val msg = messages[index]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (msg.isUser) Arrangement.End else Arrangement.Start
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = if (msg.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            )
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = msg.text,
+                            color = if (msg.isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Type quick reply...") },
+                singleLine = true,
+                maxLines = 1,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSend = {
+                        if (inputText.isNotBlank()) {
+                            val text = inputText
+                            inputText = ""
+                            messages.add(ChatMessage(text, true))
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                viewModel.sendChatMessage(adminUserId, customerUserId, text)
+                            }
+                        }
+                    }
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            FloatingActionButton(
+                onClick = {
+                    if (inputText.isNotBlank()) {
+                        val text = inputText
+                        inputText = ""
+                        messages.add(ChatMessage(text, true))
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            viewModel.sendChatMessage(adminUserId, customerUserId, text)
+                        }
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(50.dp)
+            ) {
+                Icon(Icons.Filled.Send, contentDescription = "Send")
+            }
+        }
+    }
+}
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -565,7 +714,7 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
 
     val customerUserId = viewModel.activeChatUserId ?: return // Cannot chat if unknown
 
-    val adminUserId = viewModel.loggedInUser.value?.id ?: 1
+    val adminUserId = 1
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -574,7 +723,6 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
     }
 
     LaunchedEffect(customerUserId) {
-        // Init polling for admin chat with this customer
         while (true) {
             try {
                 val apiMsgs = viewModel.getChatHistory(adminUserId, customerUserId) // admin id = dynamic, other user
@@ -584,9 +732,13 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                         isUser = networkMsg.senderId == adminUserId // User is "self" for UI drawing
                     )
                 }
-                if (newMsgs.isNotEmpty()) {
+                if (newMsgs.size > messages.size) {
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        messages.clear()
+                        val toAdd = newMsgs.drop(messages.size)
+                        messages.addAll(toAdd)
+                    }
+                } else if (newMsgs.isNotEmpty() && messages.isEmpty()) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
                         messages.addAll(newMsgs)
                     }
                 }
@@ -685,7 +837,7 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                 messages.add(com.example.ui.screens.ChatMessage(userText, true))
                                 inputText = ""
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    val adminId = viewModel.loggedInUser.value?.id ?: 1
+                                    val adminId = 1
                                     viewModel.sendChatMessage(adminId, customerUserId, userText)
                                 }
                             }

@@ -1069,6 +1069,35 @@ fun UserProfileCard(
                 }
             }
             
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToTab(16) }
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notification Settings",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "Notification Settings",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Manage chat custom ringtones and sounds",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            
             if (!user.isAdmin) {
                 // Help & Support Button (Help Center)
                 OutlinedButton(
@@ -1078,9 +1107,25 @@ fun UserProfileCard(
                         .padding(vertical = 8.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.HelpOutline, "Help center", modifier = Modifier.size(20.dp))
+                    Icon(androidx.compose.material.icons.Icons.Default.HelpOutline, "Help center", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("FAQ & Help Center", fontWeight = FontWeight.Bold)
+                }
+                
+                // Chat Support Button
+                OutlinedButton(
+                    onClick = { onNavigateToTab(5) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Chat, "Chat Support", modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Chat with Admin / Support", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

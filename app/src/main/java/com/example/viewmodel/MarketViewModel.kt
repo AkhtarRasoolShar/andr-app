@@ -176,18 +176,45 @@ class MarketViewModel(
     private val _adminAllOrdersState = MutableStateFlow<List<com.example.network.NetworkOrder>?>(null)
     val adminAllOrdersState: StateFlow<List<com.example.network.NetworkOrder>?> = _adminAllOrdersState.asStateFlow()
 
+    private var previousActiveChatsStateHash = -1
+
     fun loadAdminAllOrders() {
         viewModelScope.launch {
+            var previousOrderCount = -1
             while (true) {
                 try {
                     val res = com.example.network.RetrofitClient.apiService.getAllOrders()
                     if (res.isSuccessful && res.body()?.success == true) {
-                        _adminAllOrdersState.value = res.body()?.orders
+                        val currentOrders = res.body()?.orders ?: emptyList()
+                        _adminAllOrdersState.value = currentOrders
+                        
+                        if (previousOrderCount != -1 && currentOrders.size > previousOrderCount) {
+                            com.example.utils.NotificationHelper.sendNotification(getApplication(), "New Order \uD83D\uDCE6", "A new order has been placed by a customer.")
+                        }
+                        previousOrderCount = currentOrders.size
                     }
+                    
+                    // Admin Active Chats Polling for generic notification
+                    val sessionManager = com.example.data.SessionManager(getApplication())
+                    val role = sessionManager.fetchSession()?.role
+                    if (role == "admin" || activeChatUserId != null) {
+                        val chatRes = com.example.network.RetrofitClient.apiService.getActiveChats()
+                        if (chatRes.isSuccessful && chatRes.body()?.success == true) {
+                            val currentChats = chatRes.body()?.chats ?: emptyList()
+                            val currentStateHash = currentChats.hashCode()
+                            
+                            if (previousActiveChatsStateHash != -1 && currentStateHash != previousActiveChatsStateHash) {
+                                com.example.utils.NotificationHelper.sendChatNotification(getApplication(), "New Chat Message \uD83D\uDCAC", "A customer has sent a new message.")
+                                com.example.utils.SoundHelper.playChatSound(getApplication())
+                            }
+                            previousActiveChatsStateHash = currentStateHash
+                        }
+                    }
+
                 } catch (e: Exception) {
                     // silently fail
                 }
-                kotlinx.coroutines.delay(30000)
+                kotlinx.coroutines.delay(10000) // Polling more frequently for chat/orders push
             }
         }
     }
@@ -223,6 +250,11 @@ class MarketViewModel(
                                 if (existing != null) {
                                     if (existing.status != netOrder.status) {
                                         repository.saveLocalOrder(existing.copy(status = netOrder.status))
+                                        com.example.utils.NotificationHelper.sendNotification(
+                                            getApplication(),
+                                            "Order Update",
+                                            "Your order #${netOrder.id} status is now: ${netOrder.status.replaceFirstChar { it.uppercase() }}"
+                                        )
                                     }
                                 } else {
                                     val parsedTime = try { format.parse(netOrder.createdAt)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
@@ -250,6 +282,51 @@ class MarketViewModel(
     }
 
     var activeChatUserId: Int? = null
+
+    var isLiveWithAdmin by mutableStateOf(false)
+        private set
+
+    fun updateLiveWithAdmin(enabled: Boolean) {
+        val oldState = isLiveWithAdmin
+        isLiveWithAdmin = enabled
+        getApplication<Application>().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("is_live_with_admin", enabled).apply()
+        if (enabled && !oldState) {
+            startCustomerChatGlobally()
+        } else if (!enabled) {
+            customerChatPollingJob?.cancel()
+            customerChatPollingJob = null
+        }
+    }
+
+    private var previousCustomerChatCount = -1
+    private var customerChatPollingJob: kotlinx.coroutines.Job? = null
+
+    private fun startCustomerChatGlobally() {
+        customerChatPollingJob?.cancel()
+        customerChatPollingJob = viewModelScope.launch {
+            while (isLiveWithAdmin) {
+                try {
+                    val user = loggedInUser.value
+                    if (user != null && user.id > 0) {
+                        val apiMsgs = getChatHistory(user.id, 1) // admin id = 1
+                        if (previousCustomerChatCount != -1 && apiMsgs.size > previousCustomerChatCount) {
+                            val newMsgs = apiMsgs.subList(previousCustomerChatCount, apiMsgs.size)
+                            val latest = newMsgs.last()
+                            if (latest.senderId != user.id) { // not sent by user
+                                com.example.utils.NotificationHelper.sendChatNotification(
+                                    getApplication(), "Support Update", latest.message
+                                )
+                                com.example.utils.SoundHelper.playChatSound(getApplication())
+                            }
+                        }
+                        previousCustomerChatCount = apiMsgs.size
+                    }
+                } catch (e: Exception) {}
+                kotlinx.coroutines.delay(3000)
+            }
+        }
+    }
 
     // Logged-in User Profile state
     val loggedInUser: StateFlow<UserProfile?> = repository.loggedInUser
@@ -357,7 +434,14 @@ class MarketViewModel(
         private set
 
     init {
+        val sharedPrefs = getApplication<Application>().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+        isLiveWithAdmin = sharedPrefs.getBoolean("is_live_with_admin", false)
+        if (isLiveWithAdmin) {
+            startCustomerChatGlobally()
+        }
+
         loadProductsFromApi()
+        startProductPolling()
         loadAppSettings()
         loadOrders()
         loadAdminAllOrders()
@@ -399,11 +483,36 @@ class MarketViewModel(
         }
     }
 
+    private var previousProductCount = -1
+
+    private fun startProductPolling() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    val list = repository.fetchProductsFromRemote()
+                    if (previousProductCount != -1 && list.size > previousProductCount) {
+                        com.example.utils.NotificationHelper.sendNotification(
+                            getApplication(),
+                            "New Arrival!",
+                            "A new active product has been added to the store."
+                        )
+                    }
+                    previousProductCount = list.size
+                    _apiState.value = ApiProductState.Success(list)
+                } catch (e: Exception) {
+                    // silently fail on polling
+                }
+                kotlinx.coroutines.delay(60000) // check every 1 minute
+            }
+        }
+    }
+
     fun loadProductsFromApi() {
         viewModelScope.launch {
             _apiState.value = ApiProductState.Loading
             try {
                 val list = repository.fetchProductsFromRemote()
+                previousProductCount = list.size
                 _apiState.value = ApiProductState.Success(list)
             } catch (e: Exception) {
                 _apiState.value = ApiProductState.Error(e.message ?: "Failed to connect to remote server.")
@@ -514,8 +623,8 @@ class MarketViewModel(
 
     suspend fun getActiveChats(): List<com.example.network.ActiveChatUser> {
         return try {
-            val response = com.example.network.RetrofitClient.apiService.getActiveChats()
-            if (response.isSuccessful && response.body()?.success == true) {
+            val response = com.example.network.RetrofitClient.apiService.getActiveChats("get_conversations")
+            if (response.isSuccessful) {
                 response.body()?.chats ?: emptyList()
             } else {
                 emptyList()
