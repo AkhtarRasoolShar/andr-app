@@ -190,6 +190,7 @@ class MarketViewModel(
                         
                         if (previousOrderCount != -1 && currentOrders.size > previousOrderCount) {
                             com.example.utils.NotificationHelper.sendNotification(getApplication(), "New Order \uD83D\uDCE6", "A new order has been placed by a customer.")
+                            com.example.utils.SoundHelper.playChatSound(getApplication())
                         }
                         previousOrderCount = currentOrders.size
                     }
@@ -871,11 +872,13 @@ class MarketViewModel(
         price: Double? = null,
         stock: Int? = null,
         imageUrl: String? = null,
+        description: String? = null,
+        category: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                val req = com.example.network.ManageProductRequest(action, productId, title, price, stock, imageUrl)
+                val req = com.example.network.ManageProductRequest(action, productId, title, price, stock, imageUrl, description, category)
                 val response = com.example.network.RetrofitClient.apiService.manageProduct(req)
                 if (response.isSuccessful && response.body()?.status == "success") {
                     loadProductsFromApi()

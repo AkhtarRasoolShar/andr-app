@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 
-data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Long = System.currentTimeMillis())
+data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Long = System.currentTimeMillis(), val networkId: Int? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,17 +51,30 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
             while (true) {
                 try {
                     val apiMsgs = viewModel.getChatHistory(user.id, 1) // admin id = 1
-                    if (apiMsgs.size > lastApiCount) {
-                        val newMsgs = apiMsgs.drop(lastApiCount).map { networkMsg ->
-                            ChatMessage(
-                                text = networkMsg.message,
-                                isUser = networkMsg.senderId == user.id
-                            )
+                    val newMsgs = apiMsgs.map { networkMsg ->
+                        ChatMessage(
+                            text = networkMsg.message,
+                            isUser = networkMsg.senderId == user.id,
+                            networkId = networkMsg.id
+                        )
+                    }
+                    withContext(Dispatchers.Main) {
+                        val existingIds = messages.mapNotNull { it.networkId }.toSet()
+                        val toProcess = newMsgs.filterNot { it.networkId != null && it.networkId in existingIds }
+                        
+                        val toAdd = mutableListOf<ChatMessage>()
+                        for (msg in toProcess) {
+                            val localMatchIdx = messages.indexOfLast { it.isUser == msg.isUser && it.networkId == null && it.text == msg.text }
+                            if (localMatchIdx != -1) {
+                                messages[localMatchIdx] = messages[localMatchIdx].copy(networkId = msg.networkId)
+                            } else {
+                                toAdd.add(msg)
+                            }
                         }
-                        withContext(Dispatchers.Main) {
-                            messages.addAll(newMsgs)
-                            lastApiCount = apiMsgs.size
+                        if (toAdd.isNotEmpty()) {
+                            messages.addAll(toAdd)
                         }
+                        lastApiCount = apiMsgs.size
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()

@@ -3361,10 +3361,17 @@ fun AddEditProductDialog(
         if (uri != null) {
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
-                val bytes = inputStream?.readBytes()
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
                 inputStream?.close()
-                if (bytes != null) {
-                    val base64String = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                if (bitmap != null) {
+                    val targetWidth = 800
+                    val targetHeight = (targetWidth.toDouble() / bitmap.width * bitmap.height).toInt()
+                    val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+                    val outputStream = java.io.ByteArrayOutputStream()
+                    scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                    val bytes = outputStream.toByteArray()
+                    
+                    val base64String = "data:image/jpeg;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
                     isUploadingImage = true
                     viewModel.uploadImage(base64String) { url, errorMsg ->
                         isUploadingImage = false
@@ -4242,18 +4249,22 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
             initialPrice = product?.price?.toString() ?: "",
             initialStock = product?.stock?.toString() ?: "",
             initialImageUrl = product?.imageUrl ?: "",
+            initialDescription = product?.description ?: "",
+            initialCategory = product?.category ?: "",
             onDismiss = {
                 showAddDialog = false
                 editCandidate = null
             },
-            onSave = { title, price, stock, imageUrl ->
+            onSave = { title, price, stock, imageUrl, description, category ->
                 viewModel.manageProductRemote(
                     action = if (isEdit) "edit" else "add",
                     productId = product?.id,
                     title = title,
                     price = price,
                     stock = stock,
-                    imageUrl = imageUrl
+                    imageUrl = imageUrl,
+                    description = description,
+                    category = category
                 ) { success, msg ->
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                     if (success) {
@@ -4266,10 +4277,17 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                 Thread {
                     try {
                         val inputStream = context.contentResolver.openInputStream(uri)
-                        val bytes = inputStream?.readBytes()
+                        val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
                         inputStream?.close()
-                        if (bytes != null) {
-                            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                        if (bitmap != null) {
+                            val targetWidth = 800
+                            val targetHeight = (targetWidth.toDouble() / bitmap.width * bitmap.height).toInt()
+                            val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+                            val outputStream = java.io.ByteArrayOutputStream()
+                            scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                            val bytes = outputStream.toByteArray()
+                            
+                            val base64 = "data:image/jpeg;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
                             viewModel.uploadImage(base64) { url, error ->
                                 callback(url)
                                 if (error != null) {
@@ -4289,6 +4307,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditProductDialog(
     isEdit: Boolean,
@@ -4296,15 +4315,24 @@ fun AddEditProductDialog(
     initialPrice: String,
     initialStock: String,
     initialImageUrl: String,
+    initialDescription: String,
+    initialCategory: String,
     onDismiss: () -> Unit,
-    onSave: (title: String, price: Double, stock: Int, imageUrl: String) -> Unit,
+    onSave: (title: String, price: Double, stock: Int, imageUrl: String, description: String, category: String) -> Unit,
     onUploadImage: ((android.net.Uri, (String?) -> Unit) -> Unit)? = null
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var price by remember { mutableStateOf(initialPrice) }
     var stock by remember { mutableStateOf(initialStock) }
     var imageUrl by remember { mutableStateOf(initialImageUrl) }
+    var description by remember { mutableStateOf(initialDescription) }
     var isUploading by remember { mutableStateOf(false) }
+
+    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+    var selectedCatIndex by remember { 
+        mutableStateOf(catList.indexOfFirst { it.lowercase() == initialCategory.lowercase() }.coerceAtLeast(0)) 
+    }
+    var catExpanded by remember { mutableStateOf(false) }
 
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -4326,8 +4354,40 @@ fun AddEditProductDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, maxLines = 3, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = stock, onValueChange = { stock = it }, label = { Text("Stock") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+                
+                // Category Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = catExpanded,
+                    onExpandedChange = { catExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = catList[selectedCatIndex],
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = catExpanded) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = catExpanded,
+                        onDismissRequest = { catExpanded = false }
+                    ) {
+                        catList.forEachIndexed { index, cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    selectedCatIndex = index
+                                    catExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(value = imageUrl, onValueChange = { imageUrl = it }, label = { Text("Image URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 
                 Button(
@@ -4350,7 +4410,7 @@ fun AddEditProductDialog(
                 val p = price.toDoubleOrNull() ?: 0.0
                 val s = stock.toIntOrNull() ?: 0
                 if (title.isNotBlank()) {
-                    onSave(title, p, s, imageUrl)
+                    onSave(title, p, s, imageUrl, description, catList[selectedCatIndex])
                 }
             }) {
                 Text("Save")

@@ -33,31 +33,20 @@ data class AdminUser(val id: Int, val name: String, val email: String, var role:
 @Composable
 fun AdminOrdersScreen(viewModel: MarketViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var orders by remember { mutableStateOf<List<com.example.network.NetworkOrder>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        try {
-            val response = com.example.network.RetrofitClient.apiService.getAllOrders()
-            if (response.isSuccessful) {
-                orders = response.body()?.orders ?: emptyList()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            isLoading = false
-        }
-    }
+    val orders by viewModel.adminAllOrdersState.collectAsState()
 
-    if (isLoading) {
+    if (orders == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
+
+    val safeOrders = orders ?: emptyList()
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -67,150 +56,169 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             
             // Dashboard Chart
-            if (orders.isNotEmpty()) {
-                val totalRevenue = orders.filter { !it.status.equals("Cancelled", ignoreCase = true) }.sumOf { it.totalAmount }
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("30-Day Overview", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text("Total Revenue", color = MaterialTheme.colorScheme.outline)
-                                Text("Rs. ${String.format(java.util.Locale.US, "%.2f", totalRevenue)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+            if (safeOrders.isNotEmpty()) {
+                val totalRevenue = safeOrders.filter { !it.status.equals("Cancelled", ignoreCase = true) }.sumOf { it.totalAmount }
+                val completedOrders = safeOrders.count { it.status.equals("Delivered", ignoreCase = true) }
+                val pendingOrders = safeOrders.count { it.status.equals("Pending", ignoreCase = true) }
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("Performance Overview", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Text("Total Revenue", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                Text("Rs. ${String.format(java.util.Locale.US, "%.2f", totalRevenue)}", style = MaterialTheme.typography.headlineSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("Total Orders", color = MaterialTheme.colorScheme.outline)
-                                Text("${orders.size}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                                Text("Total Orders", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                Text("${safeOrders.size}", style = MaterialTheme.typography.headlineSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
-                        
-                        // Fake Bar Chart with Canvas
-                        Spacer(modifier = Modifier.height(16.dp))
-                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                            val barWidth = 24.dp.toPx()
-                            val spacing = 16.dp.toPx()
-                            val maxBarHeight = size.height
-                            
-                            val dummyData = listOf(0.4f, 0.7f, 0.3f, 0.8f, 0.5f, 0.9f, 0.6f)
-                            val totalWidth = (dummyData.size * barWidth) + ((dummyData.size - 1) * spacing)
-                            val startX = (size.width - totalWidth) / 2
-                            
-                            dummyData.forEachIndexed { index, fillPercent ->
-                                val x = startX + (index * (barWidth + spacing))
-                                val barHeight = maxBarHeight * fillPercent
-                                val y = size.height - barHeight
-                                
-                                drawRect(
-                                    color = androidx.compose.ui.graphics.Color(0xFF4CAF50).copy(alpha = 0.8f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(x, y),
-                                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
-                                )
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Text("Delivered", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                Text("$completedOrders", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Pending", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                Text("$pendingOrders", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
                     }
                 }
             }
 
-            if (orders.isEmpty()) {
-                Text("No orders pending.")
+            if (safeOrders.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No orders pending.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             } else {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     label = { Text("Search by Order ID or Customer Name") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 )
 
-                val filteredOrders = orders.filter { order ->
+                val filteredOrders = safeOrders.filter { order ->
                     order.id.contains(searchQuery, ignoreCase = true) ||
                     (order.customerName?.contains(searchQuery, ignoreCase = true) == true)
                 }
 
                 if (filteredOrders.isEmpty()) {
-                    Text("No matching orders found.")
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("No matching orders found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 } else {
                     androidx.compose.foundation.lazy.LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(filteredOrders.size) { index ->
                             val order = filteredOrders[index]
-                        var currentStatus by remember { mutableStateOf(order.status) }
-                        var isDropdownExpanded by remember { mutableStateOf(false) }
+                            var currentStatus by remember { mutableStateOf(order.status) }
+                            var isDropdownExpanded by remember { mutableStateOf(false) }
+                            var showViewOrderDialog by remember { mutableStateOf(false) }
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Order ID: ${order.id}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                Text("Total: Rs. ${order.totalAmount}")
-                                Text("Created: ${order.createdAt}", style = MaterialTheme.typography.bodySmall)
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Status: $currentStatus", color = MaterialTheme.colorScheme.primary)
-                                
-                                Box {
-                                    OutlinedButton(onClick = { isDropdownExpanded = true }) {
-                                        Text("Action Options")
-                                    }
-                                    var showPrintDialog by remember { mutableStateOf(false) }
-                                    DropdownMenu(
-                                        expanded = isDropdownExpanded,
-                                        onDismissRequest = { isDropdownExpanded = false }
-                                    ) {
-                                        listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
-                                            DropdownMenuItem(
-                                                text = { Text("Set: $status") },
-                                                onClick = {
-                                                    isDropdownExpanded = false
-                                                    currentStatus = status
-                                                    scope.launch {
-                                                        val request = com.example.network.AdminMasterRequest(
-                                                            action = "update_order_status",
-                                                            orderId = order.id.toIntOrNull(),
-                                                            status = status
-                                                        )
-                                                        val resString = viewModel.sendAdminCommandString(request)
-                                                        val isSuccess = resString != null && org.json.JSONObject(resString).optString("status") == "success"
-                                                        if (isSuccess) {
-                                                            snackbarHostState.showSnackbar("Order status updated successfully!")
-                                                        } else {
-                                                            snackbarHostState.showSnackbar("Failed to update order status.")
-                                                        }
-                                                    }
-                                                }
-                                            )
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { showViewOrderDialog = true },
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Order ID: ${order.id}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                                        androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+                                            Text(currentStatus, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                                         }
-                                        androidx.compose.material3.Divider()
-                                        DropdownMenuItem(
-                                            text = { Text("Print Slip") },
-                                            onClick = {
-                                                isDropdownExpanded = false
-                                                showPrintDialog = true
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Customer: ${order.customerName ?: "Unknown"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Total: Rs. ${order.totalAmount}", style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Created: ${order.createdAt}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                        OutlinedButton(onClick = { showViewOrderDialog = true }, modifier = Modifier.padding(end = 8.dp)) {
+                                            Text("View")
+                                        }
+                                        Box {
+                                            FilledTonalButton(onClick = { isDropdownExpanded = true }) {
+                                                Text("Update")
                                             }
-                                        )
+
+                                            DropdownMenu(
+                                                expanded = isDropdownExpanded,
+                                                onDismissRequest = { isDropdownExpanded = false }
+                                            ) {
+                                                listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
+                                                    DropdownMenuItem(
+                                                        text = { Text("Set: $status") },
+                                                        onClick = {
+                                                            isDropdownExpanded = false
+                                                            currentStatus = status
+                                                            scope.launch {
+                                                                val request = com.example.network.AdminMasterRequest(
+                                                                    action = "update_order_status",
+                                                                    orderId = order.id.toIntOrNull(),
+                                                                    status = status
+                                                                )
+                                                                val resString = viewModel.sendAdminCommandString(request)
+                                                                val isSuccess = resString != null && org.json.JSONObject(resString).optString("status") == "success"
+                                                                if (isSuccess) {
+                                                                    snackbarHostState.showSnackbar("Order status updated successfully!")
+                                                                } else {
+                                                                    snackbarHostState.showSnackbar("Failed to update order status.")
+                                                                }
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                     
-                                    if (showPrintDialog) {
+                                    if (showViewOrderDialog) {
                                         AlertDialog(
-                                            onDismissRequest = { showPrintDialog = false },
-                                            title = { Text("Order Slip - #${order.id}") },
+                                            onDismissRequest = { showViewOrderDialog = false },
+                                            title = { Text("Order Details - #${order.id}") },
                                             text = {
-                                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                                Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    Text("Customer: ${order.customerName ?: "N/A"}", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                                                    Text("Phone: ${order.phone ?: "N/A"}")
+                                                    Text("Address: ${order.deliveryAddress ?: "N/A"}")
                                                     Text("Date: ${order.createdAt}")
                                                     Text("Status: ${order.status}")
-                                                    Text("Total Amount: Rs. ${order.totalAmount}")
+                                                    Text("Payment Method: ${order.paymentMethod ?: "COD"}")
+                                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                                                    Text("Items:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                                    if (order.items.isNullOrEmpty()) {
+                                                        Text("No items info available.")
+                                                    } else {
+                                                        order.items.forEach { item ->
+                                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                                Text("${item.quantity}x ${item.name ?: "Item"}")
+                                                                Text("Rs. ${item.price ?: 0.0}")
+                                                            }
+                                                        }
+                                                    }
+                                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                                                    Text("Total Amount: Rs. ${order.totalAmount}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                                 }
                                             },
                                             confirmButton = {
                                                 TextButton(onClick = {
                                                     printOrderReceipt(context, order)
-                                                    showPrintDialog = false
-                                                }) { Text("Print") }
+                                                    showViewOrderDialog = false
+                                                }) { Text("Print PDF") }
                                             },
                                             dismissButton = {
-                                                TextButton(onClick = { showPrintDialog = false }) { Text("Close") }
+                                                TextButton(onClick = { showViewOrderDialog = false }) { Text("Close") }
                                             }
                                         )
                                     }
@@ -219,8 +227,7 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                         }
                     }
                 }
-            } // Close the else { block that checks if filteredOrders is empty
-            } // ADDED CLOSE BRACE
+            }
         }
     }
 }
@@ -355,7 +362,9 @@ fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
         while (true) {
             val chats = viewModel.getActiveChats()
             activeChats.clear()
-            activeChats.addAll(chats)
+            // Sort by last message time descending. If no time, put them at the end.
+            val sortedChats = chats.sortedByDescending { it.lastMessageTime ?: "" }
+            activeChats.addAll(sortedChats)
             isLoading = false
             kotlinx.coroutines.delay(3000)
         }
@@ -388,7 +397,15 @@ fun AdminUsersScreen(viewModel: MarketViewModel, onChatClick: (Int) -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = user.name ?: "", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = user.name ?: "", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        if (user.unreadCount != null && user.unreadCount > 0) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                                Text(text = user.unreadCount.toString(), color = MaterialTheme.colorScheme.onError)
+                                            }
+                                        }
+                                    }
                                     Text(text = user.email ?: "", style = MaterialTheme.typography.bodySmall)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(text = "Last Message: ${user.lastMessage ?: ""}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -447,16 +464,23 @@ fun AdminQuickChatPanel(viewModel: MarketViewModel, adminUserId: Int, customerUs
                 val apiMsgs = viewModel.getChatHistory(adminUserId, customerUserId)
                 val newMsgs = apiMsgs.map { networkMsg ->
                     val isMine = networkMsg.senderId == adminUserId
-                    ChatMessage(networkMsg.message, isMine)
+                    ChatMessage(networkMsg.message, isMine, networkId = networkMsg.id)
                 }
-                if (newMsgs.size > messages.size) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        val toAdd = newMsgs.drop(messages.size)
-                        messages.addAll(toAdd)
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val existingIds = messages.mapNotNull { it.networkId }.toSet()
+                    val toProcess = newMsgs.filterNot { it.networkId != null && it.networkId in existingIds }
+                    
+                    val toAdd = mutableListOf<ChatMessage>()
+                    for (msg in toProcess) {
+                        val localMatchIdx = messages.indexOfLast { it.isUser == msg.isUser && it.networkId == null && it.text == msg.text }
+                        if (localMatchIdx != -1) {
+                            messages[localMatchIdx] = messages[localMatchIdx].copy(networkId = msg.networkId)
+                        } else {
+                            toAdd.add(msg)
+                        }
                     }
-                } else if (newMsgs.isNotEmpty() && messages.isEmpty()) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        messages.addAll(newMsgs)
+                    if (toAdd.isNotEmpty()) {
+                        messages.addAll(toAdd)
                     }
                 }
             } catch (e: Exception) {}
@@ -729,17 +753,25 @@ fun AdminSupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                 val newMsgs = apiMsgs.map { networkMsg ->
                     com.example.ui.screens.ChatMessage(
                         text = networkMsg.message,
-                        isUser = networkMsg.senderId == adminUserId // User is "self" for UI drawing
+                        isUser = networkMsg.senderId == adminUserId, // User is "self" for UI drawing
+                        networkId = networkMsg.id
                     )
                 }
-                if (newMsgs.size > messages.size) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        val toAdd = newMsgs.drop(messages.size)
-                        messages.addAll(toAdd)
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val existingIds = messages.mapNotNull { it.networkId }.toSet()
+                    val toProcess = newMsgs.filterNot { it.networkId != null && it.networkId in existingIds }
+                    
+                    val toAdd = mutableListOf<com.example.ui.screens.ChatMessage>()
+                    for (msg in toProcess) {
+                        val localMatchIdx = messages.indexOfLast { it.isUser == msg.isUser && it.networkId == null && it.text == msg.text }
+                        if (localMatchIdx != -1) {
+                            messages[localMatchIdx] = messages[localMatchIdx].copy(networkId = msg.networkId)
+                        } else {
+                            toAdd.add(msg)
+                        }
                     }
-                } else if (newMsgs.isNotEmpty() && messages.isEmpty()) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        messages.addAll(newMsgs)
+                    if (toAdd.isNotEmpty()) {
+                        messages.addAll(toAdd)
                     }
                 }
             } catch (e: Exception) {

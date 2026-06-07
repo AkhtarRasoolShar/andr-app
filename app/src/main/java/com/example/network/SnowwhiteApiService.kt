@@ -256,7 +256,9 @@ data class ManageProductRequest(
     val title: String? = null,
     val price: Double? = null,
     val stock: Int? = null,
-    @Json(name = "image_url") val imageUrl: String? = null
+    @Json(name = "image_url") val imageUrl: String? = null,
+    val description: String? = null,
+    val category: String? = null
 )
 
 data class NetworkChatMessage(
@@ -303,7 +305,8 @@ data class ActiveChatUser(
     val name: String,
     val email: String,
     @Json(name = "last_message") val lastMessage: String? = null,
-    @Json(name = "last_message_time") val lastMessageTime: String? = null
+    @Json(name = "last_message_time") val lastMessageTime: String? = null,
+    @Json(name = "unread_count") val unreadCount: Int? = null
 )
 
 data class ActiveChatsResponse(
