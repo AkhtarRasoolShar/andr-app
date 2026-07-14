@@ -12,6 +12,9 @@ import com.example.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 
 sealed interface ApiProductState {
     object Loading : ApiProductState
@@ -450,7 +453,7 @@ class MarketViewModel(
         viewModelScope.launch {
             val cats = repository.allCategories.first()
             if (cats.isEmpty()) {
-                listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized").forEach {
+                listOf("Pickup & Drop-off Services").forEach {
                     repository.addCategoryLocal(it)
                 }
             }
@@ -561,6 +564,7 @@ class MarketViewModel(
                 val success = repository.login(email, passwordEntered)
                 if (success) {
                     fetchAndUploadFcmToken()
+                    kotlinx.coroutines.delay(300) // Wait for Flow to emit new logged-in user
                 }
                 onResult(success, if (success) null else "Invalid username or security combination.")
             } catch (e: Exception) {
@@ -650,6 +654,7 @@ class MarketViewModel(
         imageUrl: String,
         description: String = "Premium Service",
         category: String = "Specialized",
+        subCategory: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
@@ -660,7 +665,8 @@ class MarketViewModel(
                     stockLeft = stockLeft,
                     imageUrl = imageUrl,
                     description = description,
-                    category = category
+                    category = category,
+                    subCategory = subCategory
                 )
                 if (success) {
                     loadProductsFromApi() // force refresh
@@ -840,6 +846,7 @@ class MarketViewModel(
         imageUrl: String,
         description: String,
         category: String,
+        subCategory: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
@@ -851,7 +858,8 @@ class MarketViewModel(
                     stockLeft = stockLeft,
                     imageUrl = imageUrl,
                     description = description,
-                    category = category
+                    category = category,
+                    subCategory = subCategory
                 )
                 if (success) {
                     loadProductsFromApi() // force refresh
@@ -874,37 +882,50 @@ class MarketViewModel(
         imageUrl: String? = null,
         description: String? = null,
         category: String? = null,
+        subCategory: String? = null,
         onResult: (Boolean, String?) -> Unit
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val req = com.example.network.ManageProductRequest(action, productId, title, price, stock, imageUrl, description, category)
-                val response = com.example.network.RetrofitClient.apiService.manageProduct(req)
-                if (response.isSuccessful && response.body()?.status == "success") {
+                if (action == "delete" && productId != null) {
+                    repository.deleteProductRemote(productId)
+                    com.example.data.FirestoreService.deleteProductInCloud(productId)
                     loadProductsFromApi()
-                    onResult(true, response.body()?.message ?: "Success")
+                    withContext(Dispatchers.Main) { onResult(true, "Product deleted.") }
                 } else {
-                    val errorMsg = com.example.network.ErrorUtils.parseErrorMessage(response)
-                    onResult(false, errorMsg ?: response.body()?.message ?: "Failed.")
+                    val pId = productId ?: (System.currentTimeMillis() % 1000000).toInt()
+                    val p = com.example.data.Product(
+                        id = pId,
+                        title = title ?: "",
+                        description = description ?: "",
+                        price = price ?: 0.0,
+                        category = category ?: "",
+                        subCategory = subCategory,
+                        stock = stock ?: 0,
+                        artisanName = "Admin",
+                        imageUrl = imageUrl ?: "",
+                        rating = 5.0
+                    )
+                    repository.insertProduct(p)
+                    com.example.data.FirestoreService.addOrUpdateProductInCloud(p)
+                    loadProductsFromApi()
+                    withContext(Dispatchers.Main) { onResult(true, "Service saved.") }
                 }
             } catch (e: Exception) {
-                onResult(false, e.localizedMessage ?: "API Error")
+                withContext(Dispatchers.Main) { onResult(false, e.localizedMessage ?: "API Error") }
             }
         }
     }
 
     fun deleteProductRemote(productId: Int, onResult: (Boolean, String?) -> Unit) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val success = repository.deleteProductRemote(productId)
-                if (success) {
-                    loadProductsFromApi() // force refresh
-                    onResult(true, null)
-                } else {
-                    onResult(false, "Unknown deletion rejection.")
-                }
+                repository.deleteProductRemote(productId)
+                com.example.data.FirestoreService.deleteProductInCloud(productId)
+                loadProductsFromApi()
+                withContext(Dispatchers.Main) { onResult(true, null) }
             } catch (e: Exception) {
-                onResult(false, e.localizedMessage ?: "Product deletion failure.")
+                withContext(Dispatchers.Main) { onResult(false, e.localizedMessage ?: "Product deletion failure.") }
             }
         }
     }
@@ -915,6 +936,8 @@ class MarketViewModel(
         shippingAddress: String,
         phone: String,
         fullName: String,
+        pickupSchedule: String = "",
+        deliverySchedule: String = "",
         onSuccess: () -> Unit
     ) {
         val currentSummary = cartSummary.value
@@ -985,7 +1008,9 @@ class MarketViewModel(
                     totalAmount = currentSummary.total,
                     status = "Placed",
                     paymentCardLast4 = paymentMethod,
-                    shippingAddress = shippingAddress
+                    shippingAddress = shippingAddress,
+                    pickupSchedule = pickupSchedule,
+                    deliverySchedule = deliverySchedule
                 )
                 
                 paymentResultSuccess = newOrder

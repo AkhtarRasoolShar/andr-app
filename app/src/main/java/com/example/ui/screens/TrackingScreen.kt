@@ -27,7 +27,7 @@ import androidx.compose.foundation.border
 
 @Composable
 fun StatusTracker(currentStageIdx: Int) {
-    val stages = listOf("Collected", "In Cleaning", "Quality Check", "Delivery")
+    val stages = listOf("Picked Up", "In Process", "Out for Delivery")
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -208,11 +208,13 @@ fun TrackingScreen(onBack: () -> Unit) {
                         Text("Order Status:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         val currentStageIdx = when (orderData!!.status.lowercase()) {
-                            "pending" -> 0
+                            "pending" -> -1
+                            "picked up" -> 0
                             "processing" -> 1
-                            "shipped" -> 3
-                            "delivered" -> 4
-                            else -> 0
+                            "shipped" -> 2
+                            "out for delivery" -> 2
+                            "delivered" -> 3
+                            else -> -1
                         }
                         
                         StatusTracker(currentStageIdx)

@@ -191,7 +191,7 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                 }
 
                                 val keywordMap = mapOf(
-                                    listOf("delivery", "shipping", "deliver") to "delivery_fee",
+                                    listOf("drop-off", "shipping", "deliver") to "delivery_fee",
                                     listOf("cod", "cash") to "cod_enabled",
                                     listOf("hour", "time", "hours", "waqt") to "working_hours",
                                     listOf("location", "where", "branch", "locations", "kahan") to "store_locations",
@@ -234,24 +234,25 @@ fun SupportChatScreen(viewModel: MarketViewModel, onBack: () -> Unit) {
                                             messages.add(ChatMessage(if (isLiveWithAdmin) "Admin is typing..." else "Typing...", false))
                                             withContext(Dispatchers.IO) {
                                                 try {
-                                                    val prompt = "You are a helpful customer support assistant for SnowWhite Boutique. The user says: \"$userText\". Context details: Delivery Fee Rs. ${settings["delivery_fee"] ?: "10"}, App Name: ${settings["app_name"] ?: "SnowWhite Boutique"}. Please reply naturally, briefly, and warmly."
+                                                    val prompt = "You are a helpful customer support assistant for SnowWhite Boutique. The user says: \"$userText\". Context details: Drop-off Fee Rs. ${settings["delivery_fee"] ?: "10"}, App Name: ${settings["app_name"] ?: "SnowWhite Boutique"}. Please reply naturally, briefly, and warmly."
                                                     
                                                     val request = com.example.network.GenerateContentRequest(
                                                         contents = listOf(com.example.network.Content(
                                                             parts = listOf(com.example.network.Part(text = prompt))
-                                                        ))
+                                                        )),
+                                                        tools = listOf(com.example.network.Tool(googleSearch = emptyMap(), googleMaps = emptyMap()))
                                                     )
                                                     val apiKey = com.example.BuildConfig.GEMINI_API_KEY
                                                     val response = com.example.network.GeminiRetrofitClient.service.generateContent(apiKey, request)
                                                     val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text 
-                                                        ?: "Me ek virtual assistant hu! Aap mujhse delivery, timing, branches, payment, ya order status ke baray me pooch sakte hain, ya humein call karein: ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
+                                                        ?: "Me ek virtual assistant hu! Aap mujhse drop-off, timing, branches, payment, ya order status ke baray me pooch sakte hain, ya humein call karein: ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
                                                     
                                                     withContext(Dispatchers.Main) {
                                                         messages.removeAt(messages.size - 1) // Remove "Typing..."
                                                         messages.add(ChatMessage(reply, false))
                                                     }
                                                 } catch (e: Exception) {
-                                                    val fallback = "Me ek virtual assistant hu! Aap mujhse delivery, timing, branches, payment, ya order status ke baray me pooch sakte hain, ya humein call karein: ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
+                                                    val fallback = "Me ek virtual assistant hu! Aap mujhse drop-off, timing, branches, payment, ya order status ke baray me pooch sakte hain, ya humein call karein: ${settings["support_phone"] ?: "1-800-SNOWWHITE"}."
                                                     withContext(Dispatchers.Main) {
                                                         messages.removeAt(messages.size - 1)
                                                         messages.add(ChatMessage(fallback, false))

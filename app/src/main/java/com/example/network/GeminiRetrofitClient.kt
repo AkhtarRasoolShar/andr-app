@@ -10,10 +10,16 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Query
 
+data class Tool(
+    val googleSearch: Map<String, String>? = null,
+    val googleMaps: Map<String, String>? = null
+)
+
 data class GenerateContentRequest(
     val contents: List<Content>,
     val generationConfig: GenerationConfig? = null,
-    val systemInstruction: Content? = null
+    val systemInstruction: Content? = null,
+    val tools: List<Tool>? = null
 )
 
 data class Content(

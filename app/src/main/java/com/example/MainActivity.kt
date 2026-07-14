@@ -150,7 +150,7 @@ class MainActivity : FragmentActivity() {
                                 NavigationBarItem(
                                     selected = selectedTab == 11,
                                     onClick = { selectedTab = 11 },
-                                    label = { Text("Products") },
+                                    label = { Text("Services") },
                                     icon = { Icon(if (selectedTab == 11) Icons.Filled.Build else Icons.Outlined.Build, "Manage Products") }
                                 )
                                 NavigationBarItem(

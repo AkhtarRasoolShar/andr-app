@@ -10,6 +10,7 @@ data class Product(
     val description: String,
     val price: Double,
     val category: String, // e.g., "Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized"
+    val subCategory: String? = null,
     val stock: Int,       // Real-time inventory
     val artisanName: String, // Brand or Service provider
     val imageUrl: String,  // Key for local icon or visual illustration reference

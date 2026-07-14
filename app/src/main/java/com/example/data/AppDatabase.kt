@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Product::class, CartItem::class, Order::class, UserProfile::class, WishlistItem::class, SavedAddress::class, AppCategory::class], version = 9, exportSchema = false)
+@Database(entities = [Product::class, CartItem::class, Order::class, UserProfile::class, WishlistItem::class, SavedAddress::class, AppCategory::class], version = 11, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun marketplaceDao(): MarketplaceDao
 
@@ -18,9 +18,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "snowhite_db" // changed db name for fresh schema initialization
+                    "snowhite_db_v2" // changed db name for fresh schema initialization
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance
                 instance

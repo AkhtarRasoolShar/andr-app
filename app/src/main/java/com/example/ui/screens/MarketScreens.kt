@@ -896,6 +896,7 @@ fun MainCatalogScreen(
                                             "Laundry" -> "🧺 Laundry"
                                             "Carpet & Rugs" -> "🧹 Carpet & Rugs"
                                             "Specialized" -> "🧥 Specialized"
+                                            "Pickup and Drop" -> "🚚 Pickup and Drop"
                                             else -> cat
                                         },
                                         fontSize = 13.sp,
@@ -1048,9 +1049,11 @@ fun MainCatalogScreen(
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                         Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             Button(onClick = { showAllProducts = true }) {
-                                Text("Explore All Products")
+                                Text("Explore All Services")
                             }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        FaqAccordion()
                     }
                 }
             }
@@ -1236,6 +1239,15 @@ fun ProductListingCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (product.subCategory != null) {
+                    Text(
+                        text = product.subCategory,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -1364,7 +1376,7 @@ fun ProductDetailModal(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "🏺 Genuine product of ${product.category}",
+                                text = "🏺 Genuine service of ${product.category}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -1506,6 +1518,10 @@ fun CartScreen(
     var cardExpiry by remember { mutableStateOf("") }
     var cardCvv by remember { mutableStateOf("") }
     var addressStr by remember { mutableStateOf("") }
+    var pickupDate by remember { mutableStateOf("") }
+    var pickupTime by remember { mutableStateOf("") }
+    var deliveryDate by remember { mutableStateOf("") }
+    var deliveryTime by remember { mutableStateOf("") }
     var typedPromo by remember { mutableStateOf("") }
     var selectedPaymentMethod by remember { mutableStateOf("cod") }
 
@@ -1519,7 +1535,7 @@ fun CartScreen(
     LaunchedEffect(successOrder) {
         if (successOrder != null) {
             val deliveryText = if (selectedDeliveryDate.isNotEmpty()) selectedDeliveryDate else "3-5 business days"
-            android.widget.Toast.makeText(context, "Order Confirmed: ${successOrder.id}. Est. Delivery: $deliveryText", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(context, "Order Confirmed: ${successOrder.id}. Est. Drop-off: $deliveryText", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1696,7 +1712,7 @@ fun CartScreen(
                                 OutlinedTextField(
                                     value = typedPromo,
                                     onValueChange = { typedPromo = it },
-                                    placeholder = { Text("e.g., HANDMADE10", fontSize = 13.sp) },
+                                    placeholder = { Text("e.g., WASH10", fontSize = 13.sp) },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(52.dp)
@@ -1745,17 +1761,6 @@ fun CartScreen(
 
                     // Financial Tallies receipt
                     
-                    var fabricCareInstructions by remember { mutableStateOf("") }
-                    
-                    PickupScheduler(
-                        selectedDate = selectedPickupDate,
-                        onDateChange = { selectedPickupDate = it },
-                        selectedSlot = selectedPickupSlot,
-                        onSlotChange = { selectedPickupSlot = it },
-                        careInstructions = fabricCareInstructions,
-                        onCareInstructionsChange = { fabricCareInstructions = it }
-                    )
-
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -1778,9 +1783,9 @@ fun CartScreen(
                                     valueColor = Color(0xFF388E3C)
                                 )
                             }
-                            ReceiptEntry(label = "Craftsman Tax (8%)", value = summary.tax)
+                            ReceiptEntry(label = "Service Tax (8%)", value = summary.tax)
                             ReceiptEntry(
-                                label = "Secured Shipping",
+                                label = "Pickup & Drop Fee",
                                 value = summary.shippingFee,
                                 overrideText = if (summary.shippingFee == 0.0) "FREE" else null
                             )
@@ -1941,7 +1946,7 @@ fun CartScreen(
                                     }
                                 }
 
-                                // Delivery Picker UI
+                                // Drop-off Picker UI
                                 Card(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
@@ -1949,9 +1954,9 @@ fun CartScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.LocalShipping, "Delivery", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.LocalShipping, "Drop-off", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("2. Clean Delivery Appointment Date", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                            Text("2. Clean Drop-off Appointment Date", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1970,7 +1975,7 @@ fun CartScreen(
                                         }
 
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        Text("Select Delivery Hour Slot", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                                        Text("Select Drop-off Hour Slot", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.height(2.dp))
                                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             items(timeSlots) { slot ->
@@ -2002,7 +2007,7 @@ fun CartScreen(
                                         Icon(Icons.Default.Event, "Summary", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "Selected Order Window:\nPickup: $selectedPickupDate [$selectedPickupSlot]\nDelivery: ${selectedDeliveryDate.ifEmpty { "Not Chosen" }} [${selectedDeliverySlot.ifEmpty { "Not Chosen" }}]",
+                                            text = "Selected Order Window:\nPickup: $selectedPickupDate [$selectedPickupSlot]\nDrop-off: ${selectedDeliveryDate.ifEmpty { "Not Chosen" }} [${selectedDeliverySlot.ifEmpty { "Not Chosen" }}]",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             lineHeight = 14.sp
@@ -2067,7 +2072,7 @@ fun CartScreen(
                                              )
                                              Spacer(modifier = Modifier.height(6.dp))
                                              Text(
-                                                 text = "Cash on Delivery",
+                                                 text = "Cash on Drop-off",
                                                  fontWeight = FontWeight.Bold,
                                                  fontSize = 12.sp,
                                                  color = if (selectedPaymentMethod == "cod") {
@@ -2147,7 +2152,7 @@ fun CartScreen(
                                          )
                                          Spacer(modifier = Modifier.width(8.dp))
                                          Text(
-                                             text = "Cash on Delivery chosen. Pay with Cash, Card, or UPI upon delivery.",
+                                             text = "Cash on Drop-off chosen. Pay with Cash, Card, or UPI upon drop-off.",
                                              fontSize = 11.sp,
                                              fontWeight = FontWeight.SemiBold,
                                              color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -2297,7 +2302,7 @@ fun CartScreen(
                                 OutlinedTextField(
                                     value = addressStr,
                                     onValueChange = { addressStr = it },
-                                    label = { Text("Shipping Address") },
+                                    label = { Text("Pickup & Drop Address") },
                                     placeholder = { Text("e.g. 248 Pine Wood Cabin Dr, Portland OR") },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -2331,6 +2336,8 @@ fun CartScreen(
                                                         shippingAddress = addressStr,
                                                         phone = phoneStr,
                                                         fullName = fullNameStr,
+                                                        pickupSchedule = "$pickupDate $pickupTime",
+                                                        deliverySchedule = "$deliveryDate $deliveryTime",
                                                         onSuccess = { onNavigateToTab(3) }
                                                     )
                                                 }
@@ -2344,7 +2351,7 @@ fun CartScreen(
                                 Button(
                                     onClick = {
                                         if (addressStr.trim().isEmpty() || phoneStr.trim().isEmpty() || fullNameStr.trim().isEmpty()) {
-                                            android.widget.Toast.makeText(context, "Please fill in your shipping details", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, "Please fill in your pickup and drop-off details", android.widget.Toast.LENGTH_SHORT).show()
                                         } else {
                                             showSummaryModal = true
                                         }
@@ -2415,9 +2422,9 @@ fun CartScreen(
                         Text("Pickup: $selectedPickupDate - $selectedPickupSlot")
                     }
                     if (selectedDeliveryDate.isNotEmpty()) {
-                        Text("Delivery: $selectedDeliveryDate - $selectedDeliverySlot")
+                        Text("Drop-off: $selectedDeliveryDate - $selectedDeliverySlot")
                     } else {
-                        Text("Est. Delivery: 3-5 business days")
+                        Text("Est. Drop-off: 3-5 business days")
                     }
                 }
             },
@@ -2645,7 +2652,7 @@ fun CheckoutSuccessDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (order.paymentCardLast4.isEmpty()) "Your order has been booked as Cash on Delivery." else "Your order of handmade goods is safe.",
+                    text = if (order.paymentCardLast4.isEmpty()) "Your order has been booked as Cash on Drop-off." else "Your order of laundry services is safe.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
                     textAlign = TextAlign.Center
@@ -2675,7 +2682,7 @@ fun CheckoutSuccessDialog(
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Payment Method", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                            Text(if (order.paymentCardLast4.isEmpty()) "Cash on Delivery (COD)" else order.paymentCardLast4, fontSize = 11.sp)
+                            Text(if (order.paymentCardLast4.isEmpty()) "Cash on Drop-off (COD)" else order.paymentCardLast4, fontSize = 11.sp)
                         }
                     }
                 }
@@ -2899,7 +2906,7 @@ fun AdminInventoryScreen(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.testTag("admin_add_new_btn")
                     ) {
-                        Icon(Icons.Default.Add, "Add craft item")
+                        Icon(Icons.Default.Add, "Add service item")
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Add Piece", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -3229,14 +3236,15 @@ fun AdminInventoryScreen(
             product = null,
             viewModel = viewModel,
             onDismiss = { showAddForm = false },
-            onConfirm = { title, desc, price, cat, stock, artisan, imgUrl ->
+            onConfirm = { title, desc, price, cat, subCat, stock, artisan, imgUrl ->
                 viewModel.uploadProduct(
                     title = title,
                     price = price,
                     stockLeft = stock,
                     imageUrl = imgUrl,
                     description = desc,
-                    category = cat
+                    category = cat,
+                    subCategory = subCat
                 ) { success, errorMsg ->
                     if (success) {
                         android.widget.Toast.makeText(context, "Product Uploaded Successfully via API!", android.widget.Toast.LENGTH_LONG).show()
@@ -3254,7 +3262,7 @@ fun AdminInventoryScreen(
             product = orig,
             viewModel = viewModel,
             onDismiss = { editingProduct = null },
-            onConfirm = { title, desc, price, cat, stock, artisan, imgUrl ->
+            onConfirm = { title, desc, price, cat, subCat, stock, artisan, imgUrl ->
                 viewModel.updateProductRemote(
                     id = orig.id,
                     title = title,
@@ -3262,7 +3270,8 @@ fun AdminInventoryScreen(
                     stockLeft = stock,
                     imageUrl = imgUrl,
                     description = desc,
-                    category = cat
+                    category = cat,
+                    subCategory = subCat
                 ) { success, errorMsg ->
                     if (success) {
                         android.widget.Toast.makeText(context, "Product updated details successfully!", android.widget.Toast.LENGTH_SHORT).show()
@@ -3337,7 +3346,7 @@ fun AddEditProductDialog(
     product: Product?,
     viewModel: MarketViewModel,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Double, String, Int, String, String) -> Unit
+    onConfirm: (String, String, Double, String, String?, Int, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf(product?.title ?: "") }
     var desc by remember { mutableStateOf(product?.description ?: "") }
@@ -3345,8 +3354,9 @@ fun AddEditProductDialog(
     var stockStr by remember { mutableStateOf(product?.stock?.toString() ?: "") }
     var artisan by remember { mutableStateOf(product?.artisanName ?: "") }
     var imageUrl by remember { mutableStateOf(product?.imageUrl ?: "") }
+    var subCategory by remember { mutableStateOf(product?.subCategory ?: "") }
     
-    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized", "Pickup and Drop")
     var selectedCatIndex by remember { 
         mutableStateOf(catList.indexOfFirst { it.lowercase() == (product?.category?.lowercase() ?: "") }.coerceAtLeast(0)) 
     }
@@ -3455,7 +3465,7 @@ fun AddEditProductDialog(
                 OutlinedTextField(
                     value = imageUrl,
                     onValueChange = { imageUrl = it },
-                    label = { Text("Product Image URL") },
+                    label = { Text("Service Image URL") },
                     placeholder = { Text("https://example.com/image.jpg") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3529,7 +3539,7 @@ fun AddEditProductDialog(
 
                 // Selector Category Text Row
                 Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
-                    Text("Select Craft Category: ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                    Text("Select Service Category: ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -3595,7 +3605,8 @@ fun AddEditProductDialog(
                             } else if (pr <= 0.0 || st < 0) {
                                 errorsStr = "Price must be > 0 and Stock must be >= 0."
                             } else {
-                                onConfirm(title, desc, pr, catList[selectedCatIndex], st, artisan, imageUrl)
+                                val finalSubCat = if (catList[selectedCatIndex] == "Pickup and Drop") subCategory else null
+                                onConfirm(title, desc, pr, catList[selectedCatIndex], finalSubCat, st, artisan, imageUrl)
                             }
                         },
                         modifier = Modifier
@@ -3695,7 +3706,7 @@ fun OrdersScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Once you buy handcrafted creations via checkout, they appear here with live tracking status.",
+                        text = "Once you order laundry services via checkout, they appear here with live tracking status.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
@@ -3800,8 +3811,11 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     val (bgColor, textColor) = when (order.status.lowercase()) {
                         "pending" -> Color(0xFFFFF59D) to Color(0xFFF57F17)
+                        "picked up" -> Color(0xFFFFF59D) to Color(0xFFF57F17)
                         "processing" -> Color(0xFFBBDEFB) to Color(0xFF1565C0)
+                        "in process" -> Color(0xFFBBDEFB) to Color(0xFF1565C0)
                         "shipped" -> Color(0xFFE1BEE7) to Color(0xFF6A1B9A)
+                        "out for delivery" -> Color(0xFFE1BEE7) to Color(0xFF6A1B9A)
                         "delivered" -> Color(0xFFC8E6C9) to Color(0xFF2E7D32)
                         "cancelled" -> Color(0xFFFFCDD2) to Color(0xFFC62828)
                         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
@@ -3852,7 +3866,7 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Column {
                     Text(
-                        text = "Pickup & Delivery Address:",
+                        text = "Pickup & Drop-off Address:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.outline
@@ -3896,7 +3910,7 @@ fun OrderHistoryCard(order: Order, onClick: (() -> Unit)? = null) {
                                 Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF2E7D32))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Scheduled Delivery: ",
+                                    text = "Scheduled Drop-off: ",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -4149,7 +4163,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add New Product")
+                Icon(Icons.Default.Add, contentDescription = "Add New Service")
             }
         }
     ) { paddingValues ->
@@ -4202,10 +4216,10 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                             }
                         }
                         IconButton(onClick = { editCandidate = product }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit Product", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Service", tint = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = { deleteCandidate = product }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Product", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Service", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -4216,7 +4230,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
     deleteCandidate?.let { product ->
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text("Delete Product") },
+            title = { Text("Delete Service") },
             text = { Text("Are you sure you want to delete '${product.title}'?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -4255,7 +4269,7 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                 showAddDialog = false
                 editCandidate = null
             },
-            onSave = { title, price, stock, imageUrl, description, category ->
+            onSave = { title, price, stock, imageUrl, description, category, subCategory ->
                 viewModel.manageProductRemote(
                     action = if (isEdit) "edit" else "add",
                     productId = product?.id,
@@ -4264,7 +4278,8 @@ fun AdminProductsScreen(viewModel: MarketViewModel) {
                     stock = stock,
                     imageUrl = imageUrl,
                     description = description,
-                    category = category
+                    category = category,
+                    subCategory = subCategory
                 ) { success, msg ->
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                     if (success) {
@@ -4318,17 +4333,18 @@ fun AddEditProductDialog(
     initialDescription: String,
     initialCategory: String,
     onDismiss: () -> Unit,
-    onSave: (title: String, price: Double, stock: Int, imageUrl: String, description: String, category: String) -> Unit,
+    onSave: (title: String, price: Double, stock: Int, imageUrl: String, description: String, category: String, subCategory: String?) -> Unit,
     onUploadImage: ((android.net.Uri, (String?) -> Unit) -> Unit)? = null
 ) {
     var title by remember { mutableStateOf(initialTitle) }
+    var subCategory by remember { mutableStateOf("") }
     var price by remember { mutableStateOf(initialPrice) }
     var stock by remember { mutableStateOf(initialStock) }
     var imageUrl by remember { mutableStateOf(initialImageUrl) }
     var description by remember { mutableStateOf(initialDescription) }
     var isUploading by remember { mutableStateOf(false) }
 
-    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+    val catList = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized", "Pickup and Drop")
     var selectedCatIndex by remember { 
         mutableStateOf(catList.indexOfFirst { it.lowercase() == initialCategory.lowercase() }.coerceAtLeast(0)) 
     }
@@ -4350,7 +4366,7 @@ fun AddEditProductDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "Edit Product" else "Add New Product") },
+        title = { Text(if (isEdit) "Edit Service" else "Add New Service") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -4410,7 +4426,8 @@ fun AddEditProductDialog(
                 val p = price.toDoubleOrNull() ?: 0.0
                 val s = stock.toIntOrNull() ?: 0
                 if (title.isNotBlank()) {
-                    onSave(title, p, s, imageUrl, description, catList[selectedCatIndex])
+                    val finalSubCat = if (catList[selectedCatIndex] == "Pickup and Drop") subCategory else null
+                    onSave(title, p, s, imageUrl, description, catList[selectedCatIndex], finalSubCat)
                 }
             }) {
                 Text("Save")
@@ -4519,7 +4536,7 @@ fun AllProductsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("All Products", fontWeight = FontWeight.Bold) },
+                title = { Text("All Services", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -4537,7 +4554,7 @@ fun AllProductsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Search products...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                placeholder = { Text("Search services...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                 leadingIcon = { Icon(Icons.Default.Search, "Search icon", tint = MaterialTheme.colorScheme.primary) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -4591,7 +4608,7 @@ fun AllProductsScreen(
                     modifier = Modifier.fillMaxSize().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No products match your criteria", style = MaterialTheme.typography.bodyLarge)
+                    Text("No services match your criteria", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
                 LazyVerticalGrid(

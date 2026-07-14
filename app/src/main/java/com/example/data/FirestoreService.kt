@@ -99,20 +99,29 @@ object FirestoreService {
                         Log.e(TAG, "Firestore realtime sync error: ${error.localizedMessage}")
                         return@addSnapshotListener
                     }
-
-                    if (snapshots != null && !snapshots.isEmpty) {
+                    if (snapshots != null) {
                         CoroutineScope(Dispatchers.IO).launch {
                             for (doc in snapshots.documentChanges) {
                                 val docData = doc.document
                                 val pId = docData.getLong("id")?.toInt() ?: docData.id.toIntOrNull() ?: continue
-                                val remoteStock = docData.getLong("stock")?.toInt() ?: continue
-                                
-                                // Fetch local product
-                                val localProd = dao.getProductById(pId)
-                                if (localProd != null && localProd.stock != remoteStock) {
-                                    // Update local stock in Room DB to match Firestore live levels
-                                    dao.updateProductStock(pId, remoteStock)
-                                    Log.d(TAG, "Sync: Updated local Room product ID $pId stock to $remoteStock based on Cloud Firestore.")
+                                if (doc.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                                    dao.getProductById(pId)?.let { dao.deleteProduct(it) }
+                                } else {
+                                    val title = docData.getString("title") ?: ""
+                                    val desc = docData.getString("description") ?: ""
+                                    val price = docData.getDouble("price") ?: 0.0
+                                    val category = docData.getString("category") ?: ""
+                                    val subCategory = docData.getString("subCategory")
+                                    val stock = docData.getLong("stock")?.toInt() ?: 0
+                                    val artisan = docData.getString("artisanName") ?: "Admin"
+                                    val img = docData.getString("imageUrl") ?: ""
+                                    val p = Product(id = pId, title = title, description = desc, price = price, category = category, subCategory = subCategory, stock = stock, artisanName = artisan, imageUrl = img, rating = 5.0)
+                                    val existing = dao.getProductById(pId)
+                                    if (existing == null) {
+                                        dao.insertProduct(p)
+                                    } else {
+                                        dao.insertProduct(p) // Room @Insert with REPLACE
+                                    }
                                 }
                             }
                         }
@@ -137,6 +146,41 @@ object FirestoreService {
                 Log.e(TAG, "Failed cloud stock update: ${e.localizedMessage}")
             }
         }
+    }
+
+    fun addOrUpdateProductInCloud(product: Product, onComplete: (Boolean) -> Unit = {}) {
+        val database = db
+        if (database == null) {
+            onComplete(false)
+            return
+        }
+        val productMap = mapOf(
+            "id" to product.id,
+            "title" to product.title,
+            "description" to product.description,
+            "price" to product.price,
+            "category" to product.category,
+            "stock" to product.stock,
+            "artisanName" to product.artisanName,
+            "imageUrl" to product.imageUrl,
+            "rating" to product.rating
+        )
+        database.collection("products").document(product.id.toString())
+            .set(productMap)
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { onComplete(false) }
+    }
+
+    fun deleteProductInCloud(productId: Int, onComplete: (Boolean) -> Unit = {}) {
+        val database = db
+        if (database == null) {
+            onComplete(false)
+            return
+        }
+        database.collection("products").document(productId.toString())
+            .delete()
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { onComplete(false) }
     }
 
     /**

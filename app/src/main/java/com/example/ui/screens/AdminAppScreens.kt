@@ -156,7 +156,7 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                                                 expanded = isDropdownExpanded,
                                                 onDismissRequest = { isDropdownExpanded = false }
                                             ) {
-                                                listOf("Pending", "Processing", "Shipped", "Delivered", "Cancelled").forEach { status ->
+                                                listOf("Pending", "Picked Up", "In Process", "Out for Delivery", "Delivered", "Cancelled").forEach { status ->
                                                     DropdownMenuItem(
                                                         text = { Text("Set: $status") },
                                                         onClick = {
@@ -192,6 +192,8 @@ fun AdminOrdersScreen(viewModel: MarketViewModel) {
                                                     Text("Customer: ${order.customerName ?: "N/A"}", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                                                     Text("Phone: ${order.phone ?: "N/A"}")
                                                     Text("Address: ${order.deliveryAddress ?: "N/A"}")
+                                                    Text("Pickup Schedule: ${order.pickupSchedule ?: "N/A"}")
+                                                    Text("Delivery Schedule: ${order.deliverySchedule ?: "N/A"}")
                                                     Text("Date: ${order.createdAt}")
                                                     Text("Status: ${order.status}")
                                                     Text("Payment Method: ${order.paymentMethod ?: "COD"}")
@@ -266,7 +268,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                         Switch(checked = maintenanceMode, onCheckedChange = { maintenanceMode = it })
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Enable Cash on Delivery (COD)")
+                        Text("Enable Cash on Drop-off (COD)")
                         Switch(checked = codEnabled, onCheckedChange = { codEnabled = it })
                     }
                 }
@@ -290,7 +292,7 @@ fun AdminSettingsScreen(viewModel: MarketViewModel) {
                     OutlinedTextField(
                         value = deliveryFee,
                         onValueChange = { deliveryFee = it },
-                        label = { Text("Base Delivery Fee (Rs)") },
+                        label = { Text("Base Drop-off Fee (Rs)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -699,7 +701,7 @@ fun printOrderReceipt(context: android.content.Context, order: com.example.netwo
         "        <div><strong>Order ID:</strong> #${order.id}</div>" +
         "        <div><strong>Date:</strong> ${order.createdAt}</div>" +
         "        <div><strong>Customer Name:</strong> ${order.customerName ?: "N/A"}</div>" +
-        "        <div><strong>Delivery Address:</strong> ${order.deliveryAddress ?: "N/A"}</div>" +
+        "        <div><strong>Drop-off Address:</strong> ${order.deliveryAddress ?: "N/A"}</div>" +
         "        <div><strong>Phone:</strong> ${order.phone ?: "N/A"}</div>" +
         "        <div><strong>Payment Method:</strong> ${order.paymentMethod ?: "N/A"}</div>" +
         "        <div><strong>Status:</strong> ${order.status}</div>" +

@@ -23,9 +23,10 @@ android {
   defaultConfig {
     applicationId = "com.aistudio.craftmarket.qvxwrx"
     minSdk = 24
+    buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"" + (System.getenv("GOOGLE_WEB_CLIENT_ID")?.takeIf { it.isNotBlank() } ?: "864429531493-tflfa9v46rb14tm13inc81ji1eqmd2cq.apps.googleusercontent.com") + "\"")
     targetSdk = 34
-    versionCode = 2
-    versionName = "1.1"
+    versionCode = 4
+    versionName = "1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -77,11 +78,17 @@ secrets {
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
+// Removed compiler options that break KSP
+
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.auth)
+    implementation("androidx.credentials:credentials:1.2.2")
+    implementation("androidx.credentials:credentials-play-services-auth:1.2.2")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
   implementation(libs.firebase.messaging)
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)

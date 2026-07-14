@@ -1,0 +1,43 @@
+--- app/src/main/java/com/example/data/FirestoreService.kt
++++ app/src/main/java/com/example/data/FirestoreService.kt
+@@ -101,6 +101,38 @@
+         }
+     }
+ 
++    fun addOrUpdateProductInCloud(product: Product, onComplete: (Boolean) -> Unit = {}) {
++        val database = db
++        if (database == null) {
++            onComplete(false)
++            return
++        }
++        val productMap = mapOf(
++            "id" to product.id,
++            "title" to product.title,
++            "description" to product.description,
++            "price" to product.price,
++            "category" to product.category,
++            "stock" to product.stock,
++            "artisanName" to product.artisanName,
++            "imageUrl" to product.imageUrl,
++            "rating" to product.rating
++        )
++        database.collection("products").document(product.id.toString())
++            .set(productMap)
++            .addOnSuccessListener { onComplete(true) }
++            .addOnFailureListener { onComplete(false) }
++    }
++
++    fun deleteProductInCloud(productId: Int, onComplete: (Boolean) -> Unit = {}) {
++        val database = db
++        if (database == null) {
++            onComplete(false)
++            return
++        }
++        database.collection("products").document(productId.toString())
++            .delete()
++            .addOnSuccessListener { onComplete(true) }
++            .addOnFailureListener { onComplete(false) }
++    }
++
+     /**
+      * Executes checkOutCart atomic transaction with Cloud Firestore consistency.

@@ -14,22 +14,22 @@ import java.util.concurrent.TimeUnit
 
 data class LoginRequest(
     val email: String,
-    @Json(name = "password") val passwordEntered: String
+    @field:Json(name = "password") val passwordEntered: String
 )
 
 data class UserProfileResponse(
     val email: String,
     val name: String? = null,
-    @Json(name = "full_name") val fullNameFallback: String? = null,
-    @Json(name = "phone_number") val phoneNumber: String? = null,
+    @field:Json(name = "full_name") val fullNameFallback: String? = null,
+    @field:Json(name = "phone_number") val phoneNumber: String? = null,
     val phone: String? = null,
     val city: String? = null,
-    @Json(name = "delivery_address") val deliveryAddress: String? = null,
+    @field:Json(name = "delivery_address") val deliveryAddress: String? = null,
     val address: String? = null,
-    @Json(name = "membership_points") val membershipPoints: Int = 100,
+    @field:Json(name = "membership_points") val membershipPoints: Int = 100,
     val role: String = "customer",
-    @Json(name = "user_id") val userId: Int? = null,
-    @Json(name = "id") val id: Int? = null
+    @field:Json(name = "user_id") val userId: Int? = null,
+    @field:Json(name = "id") val id: Int? = null
 )
 {
     val fullName: String
@@ -52,10 +52,10 @@ data class LoginResponse(
 data class RegisterRequest(
     val email: String,
     val name: String,
-    @Json(name = "password") val passwordEntered: String,
-    @Json(name = "phone_number") val phoneNumber: String,
+    @field:Json(name = "password") val passwordEntered: String,
+    @field:Json(name = "phone_number") val phoneNumber: String,
     val city: String,
-    @Json(name = "delivery_address") val deliveryAddress: String
+    @field:Json(name = "delivery_address") val deliveryAddress: String
 )
 
 data class RegisterResponse(
@@ -66,10 +66,11 @@ data class RegisterResponse(
 data class AddProductRequest(
     val title: String,
     val price: Double,
-    @Json(name = "stock_left") val stockLeft: Int,
-    @Json(name = "image_url") val imageUrl: String,
+    @field:Json(name = "stock_left") val stockLeft: Int,
+    @field:Json(name = "image_url") val imageUrl: String,
     val description: String = "Premium Service",
-    val category: String = "Specialized"
+    val category: String = "Specialized",
+    @field:Json(name = "sub_category") val subCategory: String? = null
 )
 
 data class AddProductResponse(
@@ -78,8 +79,8 @@ data class AddProductResponse(
 )
 
 data class ReviewRequest(
-    @Json(name = "order_id") val orderId: String,
-    @Json(name = "product_id") val productId: Int,
+    @field:Json(name = "order_id") val orderId: String,
+    @field:Json(name = "product_id") val productId: Int,
     val rating: Int,
     val comment: String
 )
@@ -93,10 +94,11 @@ data class UpdateProductRequest(
     val id: Int,
     val title: String,
     val price: Double,
-    @Json(name = "stock_left") val stockLeft: Int,
-    @Json(name = "image_url") val imageUrl: String,
+    @field:Json(name = "stock_left") val stockLeft: Int,
+    @field:Json(name = "image_url") val imageUrl: String,
     val description: String = "Premium Service",
-    val category: String = "Specialized"
+    val category: String = "Specialized",
+    @field:Json(name = "sub_category") val subCategory: String? = null
 )
 
 data class UpdateProductResponse(
@@ -119,18 +121,20 @@ data class UploadImageRequest(
 
 data class UploadImageResponse(
     val success: Boolean,
-    @Json(name = "image_url") val imageUrl: String? = null,
+    @field:Json(name = "image_url") val imageUrl: String? = null,
     val message: String? = null
 )
 
 data class OrderRequest(
-    @Json(name = "user_id") val userId: Int,
-    @Json(name = "total_amount") val totalAmount: Double,
-    @Json(name = "payment_method") val paymentMethod: String = "COD",
+    @field:Json(name = "user_id") val userId: Int,
+    @field:Json(name = "total_amount") val totalAmount: Double,
+    @field:Json(name = "payment_method") val paymentMethod: String = "COD",
     val address: String,
     val phone: String,
-    @Json(name = "guest_name") val guestName: String? = null,
-    @Json(name = "items") val items: List<NetworkCartItem>
+    @field:Json(name = "guest_name") val guestName: String? = null,
+    @field:Json(name = "pickup_schedule") val pickupSchedule: String? = null,
+    @field:Json(name = "delivery_schedule") val deliverySchedule: String? = null,
+    @field:Json(name = "items") val items: List<NetworkCartItem>
 )
 
 data class ForgotPasswordRequest(
@@ -143,7 +147,7 @@ data class ForgotPasswordResponse(
 )
 
 data class NetworkCartItem(
-    @Json(name = "product_id") val productId: Int,
+    @field:Json(name = "product_id") val productId: Int,
     val quantity: Int,
     val price: Double
 )
@@ -151,16 +155,16 @@ data class NetworkCartItem(
 data class OrderResponse(
     val success: Boolean,
     val message: String? = null,
-    @Json(name = "order_id") val orderId: String? = null
+    @field:Json(name = "order_id") val orderId: String? = null
 )
 
 data class GuestOrderRequest(
-    @Json(name = "tracking_id") val trackingId: String,
-    @Json(name = "guest_name") val guestName: String,
-    @Json(name = "phone_number") val phoneNumber: String,
-    @Json(name = "delivery_address") val deliveryAddress: String,
-    @Json(name = "total_amount") val totalAmount: Double,
-    @Json(name = "payment_method") val paymentMethod: String
+    @field:Json(name = "tracking_id") val trackingId: String,
+    @field:Json(name = "guest_name") val guestName: String,
+    @field:Json(name = "phone_number") val phoneNumber: String,
+    @field:Json(name = "delivery_address") val deliveryAddress: String,
+    @field:Json(name = "total_amount") val totalAmount: Double,
+    @field:Json(name = "payment_method") val paymentMethod: String
 )
 
 data class ApiResponse(
@@ -175,13 +179,15 @@ data class OrderHistoryResponse(
 
 data class NetworkOrder(
     val id: String,
-    @Json(name = "total_amount") val totalAmount: Double,
+    @field:Json(name = "total_amount") val totalAmount: Double,
     val status: String,
-    @Json(name = "created_at") val createdAt: String,
-    @Json(name = "customer_name") val customerName: String? = null,
+    @field:Json(name = "created_at") val createdAt: String,
+    @field:Json(name = "customer_name") val customerName: String? = null,
     val phone: String? = null,
-    @Json(name = "delivery_address") val deliveryAddress: String? = null,
-    @Json(name = "payment_method") val paymentMethod: String? = null,
+    @field:Json(name = "delivery_address") val deliveryAddress: String? = null,
+    @field:Json(name = "pickup_schedule") val pickupSchedule: String? = null,
+    @field:Json(name = "delivery_schedule") val deliverySchedule: String? = null,
+    @field:Json(name = "payment_method") val paymentMethod: String? = null,
     val items: List<NetworkOrderItem>? = null
 )
 
@@ -196,10 +202,11 @@ data class ProductResponse(
     val id: Int = 0,
     val title: String,
     val price: Double,
-    @Json(name = "stock_left") val stockLeft: Int = 0,
-    @Json(name = "image_url") val imageUrl: String = "",
+    @field:Json(name = "stock_left") val stockLeft: Int = 0,
+    @field:Json(name = "image_url") val imageUrl: String = "",
     val description: String? = null,
     val category: String? = null,
+    @field:Json(name = "sub_category") val subCategory: String? = null,
     val artisanName: String? = null,
     val rating: Double? = null
 )
@@ -210,8 +217,8 @@ data class ProductListResponse(
 )
 
 data class FcmTokenRequest(
-    @Json(name = "user_id") val userId: Int,
-    @Json(name = "fcm_token") val fcmToken: String
+    @field:Json(name = "user_id") val userId: Int,
+    @field:Json(name = "fcm_token") val fcmToken: String
 )
 
 data class FcmTokenResponse(
@@ -220,13 +227,13 @@ data class FcmTokenResponse(
 )
 
 data class WishlistRequest(
-    @Json(name = "user_id") val userId: Int,
-    @Json(name = "product_id") val productId: Int
+    @field:Json(name = "user_id") val userId: Int,
+    @field:Json(name = "product_id") val productId: Int
 )
 
 data class WishlistToggleResponse(
     val success: Boolean,
-    @Json(name = "is_favorite") val isFavorite: Boolean?,
+    @field:Json(name = "is_favorite") val isFavorite: Boolean?,
     val message: String? = null
 )
 
@@ -234,15 +241,15 @@ data class SettingsResponse(
     val success: Boolean,
     val settings: Map<String, String>? = null,
     val message: String? = null,
-    @Json(name = "latest_app_version") val latestAppVersion: String? = null,
-    @Json(name = "app_download_link") val appDownloadLink: String? = null
+    @field:Json(name = "latest_app_version") val latestAppVersion: String? = null,
+    @field:Json(name = "app_download_link") val appDownloadLink: String? = null
 )
 
 data class UpdateProfileRequest(
-    @Json(name = "user_id") val userId: Int,
-    @Json(name = "full_name") val fullName: String,
+    @field:Json(name = "user_id") val userId: Int,
+    @field:Json(name = "full_name") val fullName: String,
     val email: String,
-    @Json(name = "phone_number") val phoneNumber: String
+    @field:Json(name = "phone_number") val phoneNumber: String
 )
 
 data class UpdateProfileResponse(
@@ -251,22 +258,23 @@ data class UpdateProfileResponse(
 )
 
 data class ManageProductRequest(
-    @Json(name = "action") val action: String,
-    @Json(name = "product_id") val productId: Int? = null,
+    @field:Json(name = "action") val action: String,
+    @field:Json(name = "product_id") val productId: Int? = null,
     val title: String? = null,
     val price: Double? = null,
     val stock: Int? = null,
-    @Json(name = "image_url") val imageUrl: String? = null,
+    @field:Json(name = "image_url") val imageUrl: String? = null,
     val description: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    @field:Json(name = "sub_category") val subCategory: String? = null
 )
 
 data class NetworkChatMessage(
     val id: Int? = null,
-    @Json(name = "sender_id") val senderId: Int,
-    @Json(name = "receiver_id") val receiverId: Int,
+    @field:Json(name = "sender_id") val senderId: Int,
+    @field:Json(name = "receiver_id") val receiverId: Int,
     val message: String,
-    @Json(name = "created_at") val createdAt: String? = null
+    @field:Json(name = "created_at") val createdAt: String? = null
 )
 
 data class ChatHistoryResponse(
@@ -276,8 +284,8 @@ data class ChatHistoryResponse(
 )
 
 data class ChatSendRequest(
-    @Json(name = "sender_id") val senderId: Int,
-    @Json(name = "receiver_id") val receiverId: Int,
+    @field:Json(name = "sender_id") val senderId: Int,
+    @field:Json(name = "receiver_id") val receiverId: Int,
     val message: String
 )
 
@@ -287,31 +295,31 @@ data class ChatSendResponse(
 )
 
 data class AdminMasterRequest(
-    @Json(name = "action") val action: String,
-    @Json(name = "order_id") val orderId: Int? = null,
-    @Json(name = "status") val status: String? = null,
-    @Json(name = "user_id") val userId: Int? = null,
-    @Json(name = "role") val role: String? = null,
-    @Json(name = "maintenance_mode") val maintenanceMode: Boolean? = null,
-    @Json(name = "cod_enabled") val codEnabled: Boolean? = null,
-    @Json(name = "primary_color") val primaryColor: String? = null,
-    @Json(name = "delivery_fee") val deliveryFee: Double? = null,
-    @Json(name = "app_name") val appName: String? = null,
-    @Json(name = "logo_url") val logoUrl: String? = null
+    @field:Json(name = "action") val action: String,
+    @field:Json(name = "order_id") val orderId: Int? = null,
+    @field:Json(name = "status") val status: String? = null,
+    @field:Json(name = "user_id") val userId: Int? = null,
+    @field:Json(name = "role") val role: String? = null,
+    @field:Json(name = "maintenance_mode") val maintenanceMode: Boolean? = null,
+    @field:Json(name = "cod_enabled") val codEnabled: Boolean? = null,
+    @field:Json(name = "primary_color") val primaryColor: String? = null,
+    @field:Json(name = "delivery_fee") val deliveryFee: Double? = null,
+    @field:Json(name = "app_name") val appName: String? = null,
+    @field:Json(name = "logo_url") val logoUrl: String? = null
 )
 
 data class ActiveChatUser(
-    @Json(name = "id") val userId: Int,
+    @field:Json(name = "id") val userId: Int,
     val name: String,
     val email: String,
-    @Json(name = "last_message") val lastMessage: String? = null,
-    @Json(name = "last_message_time") val lastMessageTime: String? = null,
-    @Json(name = "unread_count") val unreadCount: Int? = null
+    @field:Json(name = "last_message") val lastMessage: String? = null,
+    @field:Json(name = "last_message_time") val lastMessageTime: String? = null,
+    @field:Json(name = "unread_count") val unreadCount: Int? = null
 )
 
 data class ActiveChatsResponse(
     val success: Boolean,
-    @Json(name = "conversations") val chats: List<ActiveChatUser> = emptyList(),
+    @field:Json(name = "conversations") val chats: List<ActiveChatUser> = emptyList(),
     val error: String? = null
 )
 

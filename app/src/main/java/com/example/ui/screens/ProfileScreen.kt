@@ -33,6 +33,12 @@ import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.example.BuildConfig
 
 @Composable
 fun ProfileScreen(
@@ -40,8 +46,10 @@ fun ProfileScreen(
     onNavigateToTab: (Int) -> Unit
 ) {
     val loggedInUser by viewModel.loggedInUser.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val sessionManager = remember { com.example.data.SessionManager(context) }
+    
+    
+    val localCtx = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.example.data.SessionManager(localCtx) }
 
     var isCreatingState by remember { mutableStateOf(false) } // toggle between login & sign-up forms
 
@@ -61,7 +69,7 @@ fun ProfileScreen(
     var successMsg by remember { mutableStateOf<String?>(null) }
 
     val showBiometricAuth = {
-        val activity = context as? FragmentActivity
+        val activity = localCtx as? FragmentActivity
         if (activity != null) {
             val executor = ContextCompat.getMainExecutor(activity)
             val biometricPrompt = BiometricPrompt(activity, executor,
@@ -226,7 +234,7 @@ fun ProfileScreen(
                                                     } else {
                                                         formError = errMsg
                                                         successMsg = null
-                                                        android.widget.Toast.makeText(context, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
+                                                        android.widget.Toast.makeText(localCtx, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
                                                     }
                                                 }
                                             } else {
@@ -246,10 +254,13 @@ fun ProfileScreen(
                                                     } else {
                                                         formError = errMsg ?: "Could not verify profile credentials."
                                                         successMsg = null
-                                                        android.widget.Toast.makeText(context, formError, android.widget.Toast.LENGTH_LONG).show()
+                                                        android.widget.Toast.makeText(localCtx, formError, android.widget.Toast.LENGTH_LONG).show()
                                                     }
                                                 }
                                             }
+
+
+
                                         }
                                     ) {
                                         Text("Retry", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
@@ -324,7 +335,7 @@ fun ProfileScreen(
 
                         // City selector dropdown simulated
                         Text(
-                            text = "Primary Delivery City",
+                            text = "Primary Drop-off City",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -353,7 +364,7 @@ fun ProfileScreen(
                         OutlinedTextField(
                             value = addressVal,
                             onValueChange = { addressVal = it; formError = null },
-                            label = { Text("Delivery Shipping Address") },
+                            label = { Text("Drop-off Address") },
                             leadingIcon = { Icon(Icons.Default.LocationOn, "Address icon") },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -419,7 +430,7 @@ fun ProfileScreen(
                                     } else {
                                         formError = errMsg
                                         successMsg = null
-                                        android.widget.Toast.makeText(context, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
+                                        android.widget.Toast.makeText(localCtx, errMsg ?: "Account creation failed.", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 }
                             } else {
@@ -439,7 +450,7 @@ fun ProfileScreen(
                                     } else {
                                         formError = errMsg ?: "Could not verify profile credentials."
                                         successMsg = null
-                                        android.widget.Toast.makeText(context, formError, android.widget.Toast.LENGTH_LONG).show()
+                                        android.widget.Toast.makeText(localCtx, formError, android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
@@ -492,6 +503,59 @@ fun ProfileScreen(
                             )
                         }
                     }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val coroutineScope = rememberCoroutineScope()
+                    OutlinedButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                try {
+                                    val credentialManager = CredentialManager.create(localCtx)
+                                    val googleIdOption = GetGoogleIdOption.Builder()
+                                        .setFilterByAuthorizedAccounts(false)
+                                        .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                                        .setAutoSelectEnabled(true)
+                                        .build()
+
+                                    val request = GetCredentialRequest.Builder()
+                                        .addCredentialOption(googleIdOption)
+                                        .build()
+
+                                    val result = credentialManager.getCredential(localCtx, request)
+                                    val credential = result.credential
+
+                                    if (credential is androidx.credentials.CustomCredential &&
+                                        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                                        val email = googleIdTokenCredential.id
+                                        val displayName = googleIdTokenCredential.displayName ?: "Google User"
+                                        
+                                        // Login
+                                        sessionManager.cacheSecureSession(email, displayName, "customer")
+                                        viewModel.autoLoginFromCache(email, displayName, "customer")
+                                        successMsg = "Google Sign-In Successful"
+                                        onNavigateToTab(0)
+                                    } else {
+                                        formError = "Unexpected credential type"
+                                    }
+                                } catch (e: androidx.credentials.exceptions.NoCredentialException) {
+                                    formError = "No Google account found. Please add an account in Device Settings."
+                                } catch (e: Exception) {
+                                    formError = "Google Sign-In Error: ${e.localizedMessage}"
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_myplaces), "Google icon", modifier = Modifier.size(20.dp), tint = Color.Unspecified)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Sign in with Google", fontWeight = FontWeight.Bold)
+                    }
 
                     if (!isCreatingState && sessionManager.isBiometricEnabled() && sessionManager.getCachedEmail() != null) {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -542,7 +606,7 @@ fun ProfileScreen(
                             viewModel.forgotPassword(forgotPasswordEmail) { success, msg ->
                                 forgotPasswordResult = msg
                                 if (success) {
-                                    android.widget.Toast.makeText(context, "Reset instructions sent.", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(localCtx, "Reset instructions sent.", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
@@ -660,6 +724,7 @@ fun UserProfileCard(
     onUpdatePreferences: (String) -> Unit,
     onNavigateToTab: (Int) -> Unit
 ) {
+    val localCtx = androidx.compose.ui.platform.LocalContext.current
     var selectedReceiptOrder by remember { mutableStateOf<com.example.data.Order?>(null) }
     val savedAddresses by viewModel.savedAddresses.collectAsState()
     var isAddingAddress by remember { mutableStateOf(false) }
@@ -668,7 +733,7 @@ fun UserProfileCard(
     var newAddressStr by remember { mutableStateOf("") }
     var newAddressPhone by remember { mutableStateOf("") }
     
-    val context = androidx.compose.ui.platform.LocalContext.current
+    
 
     if (isAddingAddress) {
         AlertDialog(
@@ -847,7 +912,7 @@ fun UserProfileCard(
             ProfileDataRow(label = "Primary Email", value = user.email, icon = Icons.Default.Email)
             ProfileDataRow(label = "Phone Contact", value = user.phoneNumber, icon = Icons.Default.Phone)
             ProfileDataRow(label = "Membership Region", value = user.city, icon = Icons.Default.LocationCity)
-            ProfileDataRow(label = "Delivery Destination", value = user.deliveryAddress, icon = Icons.Default.HomeWork)
+            ProfileDataRow(label = "Drop-off Destination", value = user.deliveryAddress, icon = Icons.Default.HomeWork)
 
             Spacer(modifier = Modifier.height(12.dp))
             var isEditingProfile by remember { mutableStateOf(false) }
@@ -898,7 +963,7 @@ fun UserProfileCard(
                             onClick = {
                                 if (editName.isNotBlank() && editEmail.isNotBlank() && editPhone.isNotBlank()) {
                                     isSavingProfile = true
-                                    val sessionManager = com.example.data.SessionManager(context)
+                                    val sessionManager = com.example.data.SessionManager(localCtx)
                                     val session = sessionManager.fetchSession()
                                     if (session != null) {
                                         viewModel.updateUserProfile(session.userId, user.email, editEmail, editName, editPhone) { success, msg ->
@@ -945,7 +1010,9 @@ fun UserProfileCard(
                 letterSpacing = 1.sp
             )
             
-            val sessionManager = remember { com.example.data.SessionManager(context) }
+            
+    val localCtx = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.example.data.SessionManager(localCtx) }
             var biometricEnabled by remember { mutableStateOf(sessionManager.isBiometricEnabled()) }
             
             Row(
@@ -1148,7 +1215,7 @@ fun UserProfileCard(
             )
 
             val currentPrefs = user.savedPreferences.split(",").filter { it.isNotBlank() }
-            val categories = listOf("Dry Cleaning", "Laundry", "Carpet & Rugs", "Specialized")
+            val categories = listOf("Pickup & Drop-off Services")
 
             Row(
                 modifier = Modifier
@@ -1440,7 +1507,7 @@ fun ReceiptDetailDialog(
                 ReceiptRow(label = "Date & Time Issued", value = formattedDate)
                 ReceiptRow(
                     label = "Payment Status",
-                    value = if (order.paymentCardLast4.isEmpty()) "Cash on Delivery" else "Paid via Card (**** ${order.paymentCardLast4})"
+                    value = if (order.paymentCardLast4.isEmpty()) "Cash on Drop-off" else "Paid via Card (**** ${order.paymentCardLast4})"
                 )
 
                 Divider(
@@ -1463,7 +1530,7 @@ fun ReceiptDetailDialog(
                     Surface(
                         color = when (order.status) {
                             "Completed", "Delivered" -> Color(0xFFE8F5E9)
-                            "Processing" -> Color(0xFFFFF3E0)
+                            "Processing", "In Process", "Picked Up" -> Color(0xFFFFF3E0)
                             else -> Color(0xFFE3F2FD)
                         },
                         shape = RoundedCornerShape(6.dp)
@@ -1474,7 +1541,7 @@ fun ReceiptDetailDialog(
                             fontWeight = FontWeight.Black,
                             color = when (order.status) {
                                 "Completed", "Delivered" -> Color(0xFF2E7D32)
-                                "Processing" -> Color(0xFFE65100)
+                                "Processing", "In Process", "Picked Up" -> Color(0xFFE65100)
                                 else -> Color(0xFF1565C0)
                             },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1578,7 +1645,7 @@ fun ReceiptDetailDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.AirportShuttle,
-                                contentDescription = "Delivery Truck",
+                                contentDescription = "Drop-off Truck",
                                 tint = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -1605,7 +1672,7 @@ fun ReceiptDetailDialog(
                         }
                         if (order.deliverySchedule.isNotBlank()) {
                             Text(
-                                text = "Delivery Slot: ${order.deliverySchedule}",
+                                text = "Drop-off Slot: ${order.deliverySchedule}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
