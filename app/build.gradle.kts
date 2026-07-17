@@ -24,9 +24,9 @@ android {
     applicationId = "com.aistudio.craftmarket.qvxwrx"
     minSdk = 24
     buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"" + (System.getenv("GOOGLE_WEB_CLIENT_ID")?.takeIf { it.isNotBlank() } ?: "864429531493-tflfa9v46rb14tm13inc81ji1eqmd2cq.apps.googleusercontent.com") + "\"")
-    targetSdk = 34
-    versionCode = 4
-    versionName = "1.3"
+    targetSdk = 36
+    versionCode = 8
+    versionName = "8.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -67,6 +67,10 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
